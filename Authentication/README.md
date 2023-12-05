@@ -51,3 +51,30 @@ ffuf -u https://0a6a00d7044d695f82c3bbbf003800c4.web-security-academy.net/login 
 ```
 
 Looked for different status code than 200 - because on success usually there is a redirect 3xx response - and found a matching password.
+
+## Username enumeration via response timing
+
+Tested making a POST login requests using Burp Interceptor with different params.
+
+- Correct username and correct password - results in fast 302 response
+- Correct username and not correct password - results with 200 and error message
+- Correct username and very long not correct password - results in 200 with long delay and same error message
+- Incorrect both - results in 200 with the same error message
+
+The app probably first check the username and only if it match it checks for the password. Applying long password makes this step significantly longer.
+
+Additionally after multiple error trials, app prevented us for further logging in for 30 minutes. No cookie was set, and the same error occured from different browser, so it may be tied up to my IP.
+
+Adding `X-Forwarded-For: 8.8.8.8` to the request bypassed this protection, overwriting my IP with value here provided for the app.
+
+Run the script to find the username
+```
+python3 username-enumeration-script-1.py
+```
+
+The script was not perfect and could be tuned better. It consistantly retuner `mysql` user for me, so I've decided its enough to go further.
+
+Brute force the password:
+```
+python3 username-enumeration-script-1-password.py
+```
