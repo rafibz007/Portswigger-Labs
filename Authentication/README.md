@@ -78,3 +78,51 @@ Brute force the password:
 ```
 python3 username-enumeration-script-1-password.py
 ```
+
+## Broken brute-force protection, IP block
+
+Application show different error if the username is invalid and different when password is. Username enumaration would be easy, but we have username given in the lab description: `carlos`.
+
+After too many failed login you receive error and get blocked from logging in (even with good credentials):
+
+```
+You have made too many incorrect login attempts. Please try again in 1 minute(s).
+```
+
+`X-Forwarder-For` header does not help this time.
+
+Blocking is done after exactly 3 failed login attempts, but after successful login the limit is reset. Sending 2 incorrect password, then correct one, finally allows us to make further guessing tries.
+
+Run script:
+```
+python3 bypassing-brute-force-protection.py
+```
+
+## Username enumeration via account lock
+
+Tried brute-focring username to look for different response size:
+```
+ffuf -X POST -u 'https://0a9800c203b320a980328fe7008e0016.web-security-academy.net/login' -w portswigger-wordlists/usernames -d 'username=FUZZ&password=WRONGPASSWORD'
+```
+
+All of the above had response size of `3132`, so filtering that and running the command 5 more time revieled the username `apple`:
+
+```
+ffuf -X POST -u 'https://0a9800c203b320a980328fe7008e0016.web-security-academy.net/login' -w portswigger-wordlists/usernames -d 'username=FUZZ&password=WRONGPASSWORD' -fs 3132
+```
+
+Trying to login with this username in the browser revealed the changed error:
+
+```
+You have made too many incorrect login attempts. Please try again in 1 minute(s).
+```
+
+Trying to bruteforce `apple` password could be possible, by waiting 1 minute after every couple of requests, but it would take too long. First I will try to check for differences on responses when username and password are correct even if the account is blocked:
+
+```
+ffuf -X POST -u 'https://0a9800c203b320a980328fe7008e0016.web-security-academy.net/login' -w portswigger-wordlists/passwords -d 'username=apple&password=FUZZ'
+```
+
+Knowing response size for known errors, flag `-fs 3184,3132` could be added. And as a result we receive the `mustang` password.
+
+Checking this in a browser, when the correct username and password are given and we are in the 1 minute time delay, we would not be logged in, but no error would be retrived.
