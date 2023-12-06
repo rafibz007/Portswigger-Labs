@@ -189,3 +189,30 @@ Examining `stay-signed-in` cookie:
 Base64 decoding results in `carlos:26323c16d5f4dabff3bb136f2460a943`
 
 Checking provided hash again in CrackStation it reviels that the password is `onceuponatime`.
+
+## Password reset broken logic
+
+Password reset functionality does not invalidate the temporary reset token and does not associate it with any user. 
+
+Simply performing password reset on our account and then using the same `POST /forgot-password` request in the Burp Repeater changing only `username` param to `carlos` resets their password and allows us to login as them.
+
+## Password reset poisoning via middleware
+
+The appliacation when creating a link with token for password reset makes use of provided by us host. 
+
+Resetting password for our user, but intercepting `POST /forgot-password` request and adding `X-Forwarded-Host: exploit-0aff000c04c2c6a58473be9b01950008.exploit-server.net` header, made us receive an email with link to Exploit Server, containing the token.
+
+Repeating the same process but for `carlos` made it availbale to read the secret token from Explot Server Access logs, access the page with the token and reset the password for `carlos`
+
+## Password brute-force via password change
+
+In password change functionality, when two new passwords match, and the current password is wrong, the account gets locked for 1 minute and you are getting logged out.  But if new passwords are different you receive simply error `Current password is incorrect`. 
+
+When entering different new passwords and corrent current one, the different error is returned `New passwords do not match`.
+
+The username is a hidden form field that can be changed. The website will still result in the same responses even for different user. Only our session must be valid for that.
+
+Brute force password for `carlos`:
+```
+python3 brute-force-password-chane.py
+```
