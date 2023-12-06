@@ -126,3 +126,41 @@ ffuf -X POST -u 'https://0a9800c203b320a980328fe7008e0016.web-security-academy.n
 Knowing response size for known errors, flag `-fs 3184,3132` could be added. And as a result we receive the `mustang` password.
 
 Checking this in a browser, when the correct username and password are given and we are in the 1 minute time delay, we would not be logged in, but no error would be retrived.
+
+## 2FA simple bypass
+
+After providing valid credentials the user is already logged in, but is at the verification code page. 
+
+Simply changing the endpoint to `/my-account?id=[user_id]` or to `/` after providing the valid credentials lets us into the application as logged in user, bypassing 2FA.
+
+## 2FA broken logic
+
+Logging in requeire two POST requests to `/login` with credentials and `/login2` with MFA code. In the `POST /login2` request, the `verify` parameter is used to determine which user's account is being accessed.
+
+Intercepting whole login flow, change the value of `Set-Cookie: verify=wiener` to `verify=carlos` in a resposne for `POST /login`. Then `GET /login2` is performed which ensures the MFA token is generated for `carlos`.
+
+Now we can make and intercept a `POST /login2` request with some random value and then using `Burp Turbo Intruder` brute-force MFA token to login as carlos (looking for 302 response).
+
+## Brute-forcing a stay-logged-in cookie
+
+Performing successful login with stay signed in functionality returns two cookies: `session` and `stay-signed-in`.
+
+Checking for base64 encoding:
+
+- session cookie:
+
+No good results
+
+- stay-signed-in:
+
+```
+$echo -n "d2llbmVyOjUxZGMzMGRkYzQ3M2Q0M2E2MDExZTllYmJhNmNhNzcw" | base64 -d
+wiener:51dc30ddc473d43a6011e9ebba6ca770
+```
+
+Checking the `51dc30ddc473d43a6011e9ebba6ca770` value at https://crackstation.net/ revieled that this is `md5` sum for the password. So the cookie is created with pattern: `base64(username:md5(password))`
+
+Brute force `carlos` cookie/password:
+```
+python brute-force-stay-signed-in-cookie.py
+```
