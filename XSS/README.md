@@ -262,6 +262,8 @@ mode: 'no-cors',
 });">
 ```
 
+(`mode: 'no-cors'` limits possible headers which will be added to the request and may not allow accessing the response value)
+
 Alternative solution. Create comment with body:
 
 ```

@@ -19,6 +19,8 @@ Some requests don't trigger a CORS preflight. Those are called simple requests f
 The motivation is that the <form> element from HTML 4.0 (which predates cross-site XMLHttpRequest and fetch) can submit simple requests to any origin, so anyone writing a server must already be protecting against cross-site request forgery (CSRF).
 ```
 
+Simple requests have limited headrs that would be attached to the request
+
 So it is prefered to use `<form>` because it "bypasses" `CORS`
 
 ```
