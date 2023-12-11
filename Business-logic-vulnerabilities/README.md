@@ -112,3 +112,13 @@ Now we can observe that applying two time in a row the same coupon will result i
 So given that, we can provide infinite amount of coupon in this order `NEWCUST5`, `SIGNUP30`, `NEWCUST5`, `SIGNUP30`, `NEWCUST5`, ...
 
 Therefore lowering our price to pay to 0 and solving the lab.
+
+## Infinite money logic flaw
+
+Gift cards worth of 10$ can be bought. This combined with unlimited `SIGNUP30` newsletter `30% discount` coupon lets us pay `7$` and redeem it for `10$` achieving wealth (unlimited money).
+
+The flow can be made using Burp, but in Community edition to do not get slowed down I am using Python-as-request extension I have made a simple python script for cloning the money.
+
+```
+python infinite-money.py
+```
