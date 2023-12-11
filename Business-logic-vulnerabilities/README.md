@@ -122,3 +122,45 @@ The flow can be made using Burp, but in Community edition to do not get slowed d
 ```
 python infinite-money.py
 ```
+
+## Authentication bypass via encryption oracle
+
+Each time the user logs in usign `stay signed in` functionality the different cookie is generated:
+
+`aCSd2QjqgsPUw8qlV0WGzlMWb3lbtCmr5SxsNc+NQGk=`
+`LxxAU8lULRhr6v8MHfu0mC0SgyrVSN3iji5u4ywRQSc=`
+
+So it suggests using a timestamp or a salt in generating a cookie. Or the  value is simply random.
+
+When creating a comment under the post, in case the email is invalid the `notification` cookie will be set and error `Invalid email address: dfgdfg` will be displayed. `notification` cookie looks similar to `stay-signed-in` cookie (is in the same way ciphered and server must decrypt it on requests).
+
+It turns out that we can replace `notification` cookie value with `stay-signed-in` cookie value in order to decode it. Found cookie structure: 
+ - `LxxAU8lULRhr6v8MHfu0mC0SgyrVSN3iji5u4ywRQSc=`: `wiener:1702301512133`
+ - `aCSd2QjqgsPUw8qlV0WGzlMWb3lbtCmr5SxsNc+NQGk=`: `wiener:1702301152210`
+
+The values `1702301512133` and `1702301152210` corelates to creation timestamps.
+
+Then `stay-signed-in` cookie structure looks like this: `base64(encrypt(username:timestamp.now()))`
+
+The `Invalid email address: dfgdfg` message is encoded and stored as `notification` cookie. Now we need to find a way to encrypt only `administrator:1702301512133` message.
+
+`notification` cookie values depending on email specified:
+ - `J0ux6WYvGUVn9Qzx4DQL/PRTwfyeyISGGKSg8r7EP/4=`: `test`
+ - `J0ux6WYvGUVn9Qzx4DQL/FWfsauavzBBYkAHXvtzsDk=`: `abcd`
+ - `J0ux6WYvGUVn9Qzx4DQL/D6iib+S8zg4qRhofj6Ieco7Se9Cp2Afjc+pTtSTQ3xHBPqkkUAPrftAvgOx0UOSBw==`: `administrator:1702301512133`
+
+Analyzing this we can conclude that first characters are always the same and may represent `Invalid email address:` part of the message. This can mean that block enryption algorithm is used.
+
+We can remove remove first part of the token (base64 decode it, remove first 23 bytes - length of the first part of the message - and base64 encode it) and try to send the cookie again, after what we receive 500 response with error `Input length must be multiple of 16 when decrypting with padded cipher`.
+
+We can try to pad to 32 bytes with `'x'*(32-len("Invalid email address: "))` and the add our data:
+
+ - `J0ux6WYvGUVn9Qzx4DQL/DEOD5VuJzAIAWvt0El9P+OPloJlqZ6lCMWdxPMKYtN6`: `xxxxxxxxxtest`
+ - `J0ux6WYvGUVn9Qzx4DQL/DEOD5VuJzAIAWvt0El9P+P4YlyKUYnp9zCLKkUwHcGs`: `xxxxxxxxxabcd`
+ - `J0ux6WYvGUVn9Qzx4DQL/DEOD5VuJzAIAWvt0El9P+PZXKCqBWZ0pqlvdrzlS+fPhb+JVK0zTCANvhRQZkxhgQ==`: `xxxxxxxxxadministrator:1702301512133`
+
+We can now try to construct the proper `stay-signed-in` cookie for the administrator:
+
+Take our encrypted cookie: `J0ux6WYvGUVn9Qzx4DQL/DEOD5VuJzAIAWvt0El9P+PZXKCqBWZ0pqlvdrzlS+fPhb+JVK0zTCANvhRQZkxhgQ==`, base64 decode it, remove first 32 bytes (beggining of the error message and our padding with `x`), then base64 encode again: `2VygqgVmdKapb3a85Uvnz4W/iVStM0wgDb4UUGZMYYE=`
+
+Testing our new cookie as notification decrypts prefectly to `administrator:1702301512133`, so now we can use this cookie (remove `session` cookie and replace `stay-sign-in` one with our custom one) and solve the lab.
