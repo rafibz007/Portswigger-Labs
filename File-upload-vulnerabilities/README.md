@@ -3,6 +3,7 @@
 - https://portswigger.net/web-security/file-upload
 - https://portswigger.net/web-security/file-upload#exploiting-flawed-validation-of-file-uploads
 - https://portswigger.net/web-security/file-upload#uploading-files-using-put
+- https://book.hacktricks.xyz/network-services-pentesting/pentesting-web/php-tricks-esp#rce-via-.httaccess
 
 ## Remote code execution via web shell upload
 
@@ -42,3 +43,42 @@ Changing `filename` to `../file-1.php` results in `File saved in avatars/file-1.
 
 *Also what could have been tried is to upload `.htaccess` file that would overwrite permissions and allow php execution in `files/avatars` directory.*
 
+## Web shell upload via extension blacklist bypass
+
+This the app provides some kind of validation for uploaded files.
+
+When uploading file with php extension we will receive and error that php files are forbidden. Uploading php5 extension will not fail, but the file will not be executed when accessed at `/files/avatars/file-1.php5`
+
+From response header `Server: Apache/2.4.41 (Ubuntu)` we know that what is running on the backend is probably Apache
+
+We can upload `.htaccess` file that will overwrite local settings and instruct Apache server to execute files with .php5 extension. After that uploading `file-1.php5` and accessing it at `/files/avatars/file-1.php5` results in RCE solving the lab.
+
+## Web shell upload via obfuscated file extension
+
+Trying to upload `file-1.php` as the avatar results in 403 Forbidden response. Changing form field `Content-Type` to `image/png` does not bypass this protection. Extension may be checked.
+
+Intercepting the request and changing uploaded form field `filename` to `file-1.php%00.png` (injecting null byte with .png extension at the end) bypasses the defense and responds with `The file avatars/file-1.php has been uploaded`. 
+
+Validation maybe written in a high-level language like PHP or Java, but the server processes the file using lower-level functions in C/C++. This difference passes validation but when writing a file detects null byte and treats it like the end of a string.
+
+Now we access the file at `/files/avatars/file-1.php` and see that it is being executed, which solves the lab.
+
+## Remote code execution via polyglot web shell upload
+
+Trying to upload `file-1.php` as the avatar results in 403 Forbidden response. Changing form field `Content-Type` to `image/png` does not bypass this protection. Obfuscating filename extension did not work.
+
+We can try to prepare png file with metadata containing malicious payload which hopefully will be executed once uploaded.
+
+```
+exiftool -all= files/cat.jpg && exiftool -comment="$(cat files/file-1.php)" files/cat.jpg
+```
+
+Checking the file we can see our payload was successfully written:
+
+```
+exiftool files/cat.jpg
+```
+
+Now uploading a `cat.jpg` file was obviously successful, but of course will not be executed. Now we can try to change the filename to `cat.php` and upload this, which also is a success!
+
+Now we can access the file at `/files/avatars/cat.php` and see that it was executed, which solves the lab.
