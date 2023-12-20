@@ -103,3 +103,19 @@ Here we will add 1 gift card to the basket via `POST /cart` request and then cre
 This required a couple of tries, but each time we could observe strange app behaviours, like not all products added to the basket (for example I was able to submit the basket successfull as first request, but only 4 of 19 jackets were added to the basket afterwards), not always errors regarding empty basket etc.
 
 After 5th try I was able to successful buy a jacket and be left with -1200$ in the account.
+
+## Single-endpoint race conditions
+
+To identify differences between email change requests I've used email template system shown below, with `i` as a request number in Turbo Intruder
+
+```
+"wiener+"+str(i)+"@exploit-0abf00d004864ba3832818bb01fe0013.exploit-server.net"
+```
+
+By performing multiple change email address requests sequencialy we cannot observe any strange behaviour, we receive a couple of emails one by one for each requested email change. Email recipent match with email content and verification link.
+
+Once we perform multiple email change requests in parrarel (using `single-packet attak`), we can see that the behaviour differs. Now some of the emails with recipent identifier `8` received validation links for email with identifier `6`. It seems like all recipents received the email, but not all of them for their account, so we may conclude that the email changing fucntion is receiving the email that the mail should be sent to as a parameter, but email contant may be drawn from some shared space.
+
+Now we can try to perform `single-paket attack` sending 10 packets with email change for `carlos@ginandjuice.shop` and 10 for `wiener@exploit-0a2a005504941a6a821cff27015b0015.exploit-server.net`. This can be done via Turbo Intruder or grouped requests in the Repeater sent in parrarel.
+
+After that we can check the email and try to confirm verification token for `carlos@ginandjuice.shop` email, which will successfully change our email and grant us admin privillages.
