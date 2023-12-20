@@ -89,3 +89,17 @@ def queueRequests(target, wordlists):
 def handleResponse(req, interesting):
     table.add(req)
 ```
+
+## Multi-endpoint race conditions
+
+In this lab, the key is to align processing time of different endpoints. This can be done by warming up the connection, sending multiple requests to add a delay in processing all of them etc.
+
+This time the app has a logic flaw, which allow adding items to the basket after payment validation.
+
+Using Burp Repeater group requests we can construct a group of requests and send them in sequence or as `single-packet attack`.
+
+Here we will add 1 gift card to the basket via `POST /cart` request and then create a group of requests with 1 `POST /cart/checkout` request for submiting the payment and 19 `POST /cart` requests, but this time with `productId` pointing to the jacket, not the giftcard.
+
+This required a couple of tries, but each time we could observe strange app behaviours, like not all products added to the basket (for example I was able to submit the basket successfull as first request, but only 4 of 19 jackets were added to the basket afterwards), not always errors regarding empty basket etc.
+
+After 5th try I was able to successful buy a jacket and be left with -1200$ in the account.
