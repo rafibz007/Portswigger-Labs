@@ -2,6 +2,7 @@
 
 - https://portswigger.net/web-security/ssrf
 - https://portswigger.net/web-security/ssrf/blind
+- https://portswigger.net/research/cracking-the-lens-targeting-https-hidden-attack-surface
 
 ## Basic SSRF against the local server
 
