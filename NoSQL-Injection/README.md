@@ -29,3 +29,31 @@ In order to login as admin and solve the lab we can modify the query like this:
 ```
 {"username":{"$regex": "admin.*"},"password":{"$ne":""}}
 ```
+
+## Exploiting NoSQL injection to extract data
+
+`POST /user/lookup?user=<username>` performs user role lookup and allows checking roles for other users as well.
+
+After requesting non existant user we receive information that no user was found, but when injecting `'` after the `user` param value we receive an error. This indicates that we might we changin the syntax of the request.
+
+Performing requests with different logical values respond with different values: 
+ - `administrator'&&true||'` -- respond with admin values
+ - `administrator'&&false||'` -- could not find a user
+
+This proves that this is vulnerable to NoSQLi.
+
+If the search is made via `$where` clause, we can make small code execution here. For example trying to access user password via `this.password`
+
+Performing tests to prove my theory I have tried to test for the first letter of the password via Burp Intruder:
+
+```
+administrator'&&this.password[0]=='<letter>'||'
+```
+
+On failures I have received `"Could not fina a user"` response, but on success for one letter admin role details were returned.
+
+Run script to solve the lab:
+
+```
+python exfil-password.py 
+```
