@@ -34,3 +34,22 @@ To solve the lab we can deliver `iframe` containing vulnerable page, which onloa
 ```
 <iframe src="https://0a7200ce03bc3ad48289581c002500f5.web-security-academy.net/" style="width: 100%; height: 100%;" frameBorder="0" onload='this.contentWindow.postMessage("javascript:print();//https:", "*")'></iframe>
 ```
+
+## DOM XSS using web messages and JSON.parse
+
+Again no origin check and no `X-Frame-Options` type headers.
+
+This time input is provided via json and `JSON.parse` function is called.
+On message receival the page would create an `iframe` and depending on `type` key provided it will take different actions. When `type` is set to `load-channel` it sets `url` json value as iframe `src` without any sanitization.
+
+To prove what can be done with it I have created an `iframe` with target website and executed the below command, which proved that when `iframe.src` is set to `javascript:` schema it will execute code. To make sure the code will not be executed in my website context, but in target website context `alert(document.domain)` is called, which proves we execute code in target page context.
+
+```
+document.querySelector("iframe").contentWindow.postMessage('{"type":"load-channel","url":"javascript:alert(document.domain)"}', '*')
+```
+
+In order to solve the lab we need to make the victim access below page containing vulnerable website in an `iframe` and making apriopriate `postMessage` call causing js execution.
+
+```
+<iframe src="https://0a7700ea031731ad82d2bfc000f8002b.web-security-academy.net/" onload='this.contentWindow.postMessage("{\"type\":\"load-channel\",\"url\":\"javascript:print()\"}", "*")'></iframe>
+```
