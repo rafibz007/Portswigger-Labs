@@ -1,6 +1,7 @@
 # API Testing
 
 - https://portswigger.net/web-security/api-testing
+- https://portswigger.net/research/backslash-powered-scanning-hunting-unknown-vulnerability-classes
 
 ## Exploiting an API endpoint using documentation
 
