@@ -67,3 +67,31 @@ To solve the lab, we need to access the url with open redirection to exploit ser
 ```
 https://0a7f004b034dd93b81637a8000cc00b5.web-security-academy.net/post?postId=7&url=https://exploit-0ad300ad037ad90381cd794e01dc0079.exploit-server.net/
 ```
+
+## DOM-based cookie manipulation
+
+Product details page contains js code, which sets the cookie value to `windows.location` without any sanitization or validation.
+
+```
+<script>
+    document.cookie = 'lastViewedProduct=' + window.location + '; SameSite=None; Secure'
+</script>
+```
+
+On the main page, the `lastViewedProduct` cookie is being reflected into the link. Upon changing it to some arbitrary value, like `TEST`, we can observe that the returned page has an `a` tag with `href` value set to `TEST`.
+
+Since the value of the cookie is being reflected on the backend to the link tag, we can try to escape it. By accessing `https://0a5a007d03f480c580c803ff00c6004a.web-security-academy.net/product?productId=1&q='TEST` URL and then navigating to the homepage, we can see, that we break out from the tag with `'` char.
+
+Now, accessing `/product?productId=1&q='autofocus onfocus="print()" x='` and then navigating to the home page, causes `onfocus` `print()` function to be executed immediately, by creating the `a` tag shown below
+
+```
+<a href='https://0a5a007d03f480c580c803ff00c6004a.web-security-academy.net/product?productId=1&q='autofocus onfocus="print()" x=''>Last viewed product</a>
+```
+
+To solve the lab, deliver to the victim below iframe, which automatically navigates between two sites, causing a `XSS`.
+
+Unfortunately autofocusing `a` tag on `cross-origin` `iframe` was blocked, so to bypass this we can break through not only `a` tag `href` param, but the whole `a` tag itself and, since this is injected server-side, create a new a `script` tag.
+
+```
+<iframe src="https://0a5a007d03f480c580c803ff00c6004a.web-security-academy.net/product?productId=1&'><script>print()</script>" onload="if(!window.x)this.src='https://0a5a007d03f480c580c803ff00c6004a.web-security-academy.net';window.x=1;">
+```
