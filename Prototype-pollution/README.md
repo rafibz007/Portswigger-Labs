@@ -3,6 +3,8 @@
 - https://portswigger.net/web-security/prototype-pollution
 - https://portswigger.net/web-security/prototype-pollution/javascript-prototypes-and-inheritance
 - https://portswigger.net/web-security/prototype-pollution/client-side
+- https://portswigger.net/web-security/prototype-pollution/client-side/browser-apis
+- https://portswigger.net/research/widespread-prototype-pollution-gadgets
 - https://portswigger.net/web-security/prototype-pollution/server-side
 - https://portswigger.net/burp/documentation/desktop/tools/dom-invader/prototype-pollution#detecting-sources-for-prototype-pollution
 
@@ -97,3 +99,18 @@ location = "https://0a5800d1033bc7ab81b3851200a90031.web-security-academy.net/#_
 ```
 
 We cannot use an iframe because of `X-Frame-Options`, but redirection is good enough.
+
+## Client-side prototype pollution via browser APIs
+
+`DOM Invader` found two sources in search and was able to determine a `script.src` sink to which `transport_url` param is passed.
+
+This time the parram is defined using the code below, which unables us to modify the parameter with casual prototype pollution. The value of `transport_url` is set to `false`, and then made uncofigurable.
+
+```
+let config = {params: deparam(new URL(location).searchParams.toString()), transport_url: false};
+Object.defineProperty(config, 'transport_url', {configurable: false, writable: false});
+```
+
+`defineProperty` function accepts `descriptor` object as the third parameter, which defines this behaviour, but since the `value` param, defining default value, was not set, we can try to pollute it.
+
+Accessing `?__proto__[value]=data:,alert(1)` pollutes the prototype with `value` key, which then is used in `defineProperty` function, causing the new value being set, which triggers XSS and solves the lab.
