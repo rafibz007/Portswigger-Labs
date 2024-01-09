@@ -52,3 +52,48 @@ From this we can read, at which line of code the value is accessed and notice it
 Now we can craft our own exploit: `?__proto__[transport_url]=data:,alert(1);`
 
 NOTE: In `data:,alert(1);` payload `,` char is because of how this the script tag with data is defined. Usually we have comma separated configuration (type, encoding etc.) and the code
+
+## DOM XSS via an alternative prototype pollution vector
+
+Using `DOM Invader` we can quickly notice one source in search. Now as we scan for gadgets we notice that the value is being passes into `eval` in `searchLogger` function.
+
+
+Now using dev tools debbuger pausing on `eval` function or the console we can figure out the working payload that solves the lab: `?__proto__.sequence=alert(1)+`.
+
+The `+` sign is there because the code appends `1` at the end of the string, which normnally causes syntaxt error, but `+` sign bypasses this problem.
+
+## Client-side prototype pollution via flawed sanitization
+
+This time DOM Intruder did not find any sources, but be can notice loaded `deparamSanitised.js` script which uses `sanitizeKey` function defined as:
+
+```
+function sanitizeKey(key) {
+    let badProperties = ['constructor','__proto__','prototype'];
+    for(let badProperty of badProperties) {
+        key = key.replaceAll(badProperty, '');
+    }
+    return key;
+}
+```
+
+Since `replaceAll` function is not called recursively, we can bypass the protection like this: `sanitizeKey("__pro__proto__to__")`
+
+Now accessing `?__pro__proto__to__[foo]=bar` updates the prototype with `foo` property.
+
+`DOM Invader` was able to scan for gadgets and revieled again `transport_url` param passed to `script.src` sink.
+
+Now accessing `?__pro__proto__to__[transport_url]=data:,alert(1);` solves the lab.
+
+## Client-side prototype pollution in third-party libraries
+
+DOM Invader found prototype polution in hash, which tested manually is successful. Testing for gadgets finds one sink in minified js library `ga.js` at `hitCallback` parameter.
+
+Accessing `#__proto__[hitCallback]=alert(1)` successfully triggers `alert` function, so in order to solve the lab we need to deliver to the victim the following page:
+
+```
+<script>
+location = "https://0a5800d1033bc7ab81b3851200a90031.web-security-academy.net/#__proto__[hitCallback]=alert(document.cookie)"
+</script>
+```
+
+We cannot use an iframe because of `X-Frame-Options`, but redirection is good enough.
