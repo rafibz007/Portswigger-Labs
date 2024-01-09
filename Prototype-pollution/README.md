@@ -133,3 +133,13 @@ Providing invalid json results in 500 response with error description, that pars
 Adding `"__proto__":{"isAdmin":true}` param to the update request responds with `"isAdmin":true`, polluting the prototype by adding `isAdmin` param set to true for every user. This means that probably the user object contains `isAdmin` param if it is an admin, and does not contain it at all if they are not one.
 
 Now having elevated privillages we can access the Admin panel and solve the lab.
+
+## Detecting server-side prototype pollution without polluted property reflection
+
+Looking again at `POST /my-account/change-address` request.
+
+By browsing through the website we can notice a couple of places where we can trigger the errors. Wrong `productId` param, wrong path etc.
+
+Adding `"__proto__":{"status":499}` to the update request and checking all error pages did not reviel any changes in the website behaviour.
+
+`json spaces` is a property for `ExpressJS`, configuring the json response indentation. Adding `"__proto__":{"json spaces":10}` made a website respond with more indent spaces in the response, which solved the lab.
