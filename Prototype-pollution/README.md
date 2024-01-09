@@ -6,6 +6,7 @@
 - https://portswigger.net/web-security/prototype-pollution/client-side/browser-apis
 - https://portswigger.net/research/widespread-prototype-pollution-gadgets
 - https://portswigger.net/web-security/prototype-pollution/server-side
+- https://portswigger.net/research/server-side-prototype-pollution
 - https://portswigger.net/burp/documentation/desktop/tools/dom-invader/prototype-pollution#detecting-sources-for-prototype-pollution
 
 ## DOM XSS via client-side prototype pollution
@@ -114,3 +115,21 @@ Object.defineProperty(config, 'transport_url', {configurable: false, writable: f
 `defineProperty` function accepts `descriptor` object as the third parameter, which defines this behaviour, but since the `value` param, defining default value, was not set, we can try to pollute it.
 
 Accessing `?__proto__[value]=data:,alert(1)` pollutes the prototype with `value` key, which then is used in `defineProperty` function, causing the new value being set, which triggers XSS and solves the lab.
+
+## Privilege escalation via server-side prototype pollution
+
+`POST /my-account/change-address` request performs user billing info update with the provided request body:
+
+```
+{"address_line_1":"Wiener HQ","address_line_2":"One Wiener Way","city":"Wienerville","postcode":"BU1 1RP","country":"UK","sessionId":"pAxXXWsIcNAPVPJSLCaDvdCdZyFuXDm2"}
+```
+
+The response contains additional parameters, such as `isAdmin`. Tries to add `"isAdmin":true` param to the update request did not do the trick.
+
+Adding `"__proto__":{"foo":"bar"}` to the request responds with additional param `"foo":"bar"`, which suggests that we have a prototype pollution here.
+
+Providing invalid json results in 500 response with error description, that parsing failed.
+
+Adding `"__proto__":{"isAdmin":true}` param to the update request responds with `"isAdmin":true`, polluting the prototype by adding `isAdmin` param set to true for every user. This means that probably the user object contains `isAdmin` param if it is an admin, and does not contain it at all if they are not one.
+
+Now having elevated privillages we can access the Admin panel and solve the lab.
