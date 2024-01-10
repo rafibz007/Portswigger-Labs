@@ -3,6 +3,7 @@ Ania Pirogowicz
 
 - https://portswigger.net/web-security/cross-site-scripting/cheat-sheet
 - https://portswigger.net/web-security/cross-site-scripting/contexts
+- https://portswigger.net/research/xss-without-parentheses-and-semi-colons
 
 ## Reflected XSS into HTML context with nothing encoded
 
@@ -335,3 +336,35 @@ location='https://0ae8004e034593d7814fbbc900fc0000.web-security-academy.net//?se
 "The exploit uses the ng-focus event in AngularJS to create a focus event that bypasses CSP. It also uses $event, which is an AngularJS variable that references the event object. The path property is specific to Chrome and contains an array of elements that triggered the event. The last element in the array contains the window object.
 
 Normally, | is a bitwise or operation in JavaScript, but in AngularJS it indicates a filter operation, in this case the orderBy filter. The colon signifies an argument that is being sent to the filter. In the argument, instead of calling the alert function directly, we assign it to the variable z. The function will only be called when the orderBy operation reaches the window object in the $event.path array. This means it can be called in the scope of the window without an explicit reference to the window object, effectively bypassing AngularJS's window check."
+
+## Reflected XSS with event handlers and href attributes blocked
+
+Performing search for `<>";()'{}[]/\` results in the same reflected on the page response, without html encoding.
+
+Most of the tags are unfortunately blocked and sending them as payload results in 400. Payloads are not case sensitive, tries like `<ScRiPt>` are also cought. By running the below command we can check which are available:
+
+```
+ffuf -w tags.txt -u 'https://0ad700a303b7a4c0839c4d4700460031.web-security-academy.net/?search=<FUZZ' -x 'http://127.0.0.1:8080' -fc 400
+```
+
+From this we can notice that `svg` tag is allowed and manually testing later we can also notice that `svg` with `animate` and `text` is also allowed.
+
+Payload found in cheatsheet after small modifications solved the lab:
+
+```
+<svg><a><animate attributeName=href values=javascript:alert(1) /></animate><text x=20 y=20>Click</text></a>
+```
+
+## Reflected XSS in a JavaScript URL with some characters blocked
+
+After creating comment with body `<>()'"{}[]/\` we can notice html encoding for most of the characters, resulting in `&lt;&gt;()&apos;&quot;{}[]/\\`.
+
+We can notice `fetch` function used for analytics and the url being reflected there. Upon entering the same site with new param containing quotes `/post?postId=2&x=<>()'"{}[]/\`, we discover that in this place they are not being html encoded, but URL encoded.
+
+Accessing `/post?postId=5&'},x=x=>{throw/**/onerror=alert,1337},toString=x,window+'',{x:'` and clicking Back button solves the lab.
+
+"The exploit uses exception handling to call the alert function with arguments. The throw statement is used, separated with a blank comment in order to get round the no spaces restriction. The alert function is assigned to the onerror exception handler.
+
+As throw is a statement, it cannot be used as an expression. Instead, we need to use arrow functions to create a block so that the throw statement can be used. We then need to call this function, so we assign it to the toString property of window and trigger this by forcing a string conversion on window."
+
+Contents of the tags are being html decoded when run, but as it turns out, the content of the `href` with usage of `javascript:` pseudo-schema performs url decoding before running. Here the problem was that spaces were encoded as `+` signs, so in order to solve this `/**/` trick was required.
