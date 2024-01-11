@@ -138,3 +138,21 @@ Access-Control-Allow-Origin: https://0a17008b045e30d882a6dd2500a2007a.web-securi
 ```
 
 Everyone visiting `/` home page will receive cached redirection to language change and then to `/?localized=1` with cookie set to Espaniol. Poisoned `/?localized=1` with reflected host header will fetch the data from our malicious server and pass unsafely to `innerHtml` solving the lab.
+
+## Web cache poisoning via an unkeyed query string
+
+Note: `Pragma: x-get-cache-key` header can be used to display cache key from the server.
+
+This time we can notice that at `GET /` and `GET /post` request query string is unkeyed. By performing one request and follow up with another requests containing random new query params, removed previous query params etc. we still receive `X-Cache: hit` and the original response.
+
+Param Miner or header keyed values can be used for cache busters in order to help with testing.
+
+The full host and path is reflected into the page without any encoding, therefore poisoning the cache with `/?q='+/><script>alert(1)</script>` will serve the XXS payload for everyone visiting `/`
+
+## Web cache poisoning via an unkeyed query parameter
+
+Again in the same place the url is being reflected into the page and again accessing `/?q='+/><script>alert(1)</script>` will trigger the XSS. But this time query string is a cache key.
+
+Caches sometimes skip UTM analytics query parameters, since they are not required for the backend server. Therefore testing a few of them resulted in successfully finding unkeyed one `utm_content`.
+
+Accessing `/?utm_content=' /><script>alert(1)</script>` successfuly poisons the cache and deliver XSS payload to all users visitng home page, solving the lab.
