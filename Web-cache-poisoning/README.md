@@ -156,3 +156,23 @@ Again in the same place the url is being reflected into the page and again acces
 Caches sometimes skip UTM analytics query parameters, since they are not required for the backend server. Therefore testing a few of them resulted in successfully finding unkeyed one `utm_content`.
 
 Accessing `/?utm_content=' /><script>alert(1)</script>` successfuly poisons the cache and deliver XSS payload to all users visitng home page, solving the lab.
+
+## Parameter cloaking
+
+From quick examination, we can notice, that the caching server is preset, the query params are keyed and that some UTM params are removed from the cache keys. Accessing the same page twice second time responds with `X-Cache: hit`, adding a query param `q` results in a `miss`, but performing the same request with that param returns `hit`. Adding `utm_content` query param stills results in a `hit`, which proves it is excluded.
+
+Now we can take a look at jsonp present at `/js/geolocate.js` used at the page with `callback=setCountryCookie` query param. Adding arbitrary query param `cb=1` and performing `/js/geolocate.js?callback=setCountryCookie&cb=1` request multiple times proves that this response is also being cached.
+
+In order to discover discrepancies between cache and the server we perform the request `GET /js/geolocate.js?callback=setCountryCookie&cb=1&utm_content=1;callback=myFunction` makes use of that ruby allow separating parameters with `;` and once the same param is passed multiple times it takes the last occurance as value. Following by simple `GET /js/geolocate.js?callback=setCountryCookie&cb=1` request which, because the cache server does not allow `;` parameter separation and therefore removed whole `utm_content=1;callback=myFunction` part from cache, responds with the poisoned cached value containing `myFunction` as callback.
+
+In order to solve the lab, perform `GET /js/geolocate.js?callback=setCountryCookie&utm_content=1;callback=alert(1)%3bsetCountryCookie`, will posion a cache for every `GET /js/geolocate.js?callback=setCountryCookie` request happening on the home page for every visitor.
+
+## Web cache poisoning via a fat GET request
+
+Same jsonp request as in previous lab. This time we can notice, that by providing in the `GET /js/geolocate.js?callback=setCountryCookie` request additional body `callback=setLangCookie` will overwrite the `callback` param, not caching the body of the response.
+
+This way we can poison the cache by setting the body to `callback=alert(1);setCountryCookie`, which will cache a response for `/js/geolocate.js?callback=setCountryCookie`, triggering XSS for every home page visitor, solving the lab.
+
+Note1: GET request containg a body is called "Fat GET request"
+
+Note2: "As long as the X-HTTP-Method-Override header is unkeyed, you could submit a pseudo-POST request while preserving a GET cache key derived from the request line."
