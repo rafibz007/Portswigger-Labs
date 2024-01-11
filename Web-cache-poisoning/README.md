@@ -176,3 +176,13 @@ This way we can poison the cache by setting the body to `callback=alert(1);setCo
 Note1: GET request containg a body is called "Fat GET request"
 
 Note2: "As long as the X-HTTP-Method-Override header is unkeyed, you could submit a pseudo-POST request while preserving a GET cache key derived from the request line."
+
+## URL normalization
+
+On 404 Not Found page we can notice the url is being reflected and, upon investigation, without any sanitization.
+
+Performing `GET /post/a<script>alert(1)</script>` request with Burp results in a page containing malicious script, but accessing this url via browser URL encoded the tags and renders a page with simple string.
+
+However once we test send the request via Burp and then quickly access it in a browser we receive not encoded string triggering the XSS. This is because the cache server must be performing URL normalization before storing the key or responding to the client. `/post/a%3Cscript%3Ealert(1)%3C/script%3E` and `/post/a<script>alert(1)</script>` must be the same string for it, so it responds with the cached page containing XSS.
+
+Therefore we can, using Burp, poison the cache and deliver the link to the victim, which despite being url encoded, will lead to cached not encoded page triggering the XSS, which solves the lab.
